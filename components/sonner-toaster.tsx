@@ -3,7 +3,7 @@
 import React from "react";
 
 export default function SonnerToaster() {
-  const [ToasterComp, setToasterComp] = React.useState<any>(null);
+  const [ToasterComp, setToasterComp] = React.useState<React.ComponentType | null>(null);
 
   React.useEffect(() => {
     let mounted = true;

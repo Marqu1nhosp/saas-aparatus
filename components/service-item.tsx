@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import React from "react";
+import React, { useState } from "react";
 
+import { BookingSheet } from "@/components/booking-sheet";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,12 +16,19 @@ type Service = {
     barbershopId?: string;
 };
 
+type Barbershop = {
+    id: string;
+    name: string;
+};
+
 export default function ServiceItem({
     service,
+    barbershop,
 }: {
     service: Service;
-    barbershop?: unknown;
+    barbershop?: Barbershop;
 }) {
+    const [isBookingOpen, setIsBookingOpen] = useState(false);
     const price = service.priceInCents
         ? new Intl.NumberFormat("pt-BR", {
             style: "currency",
@@ -29,42 +37,57 @@ export default function ServiceItem({
         : "";
 
     return (
-        <Card className="p-3">
-            <CardHeader className="flex items-start gap-4 p-0">
-                <div className="relative shrink-0 w-20 h-20 rounded-md bg-muted overflow-hidden">
-                    {service.imageUrl ? (
-                        <Image
-                            src={service.imageUrl}
-                            alt={service.name}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 4rem, 5rem"
-                        />
-                    ) : (
-                        <div className="flex items-center justify-center w-full h-full">
-                            <span className="text-base font-semibold text-black">{price || ""}</span>
-                        </div>
-                    )}
-                </div>
+        <>
+            <Card className="p-3">
+                <CardHeader className="flex items-start gap-4 p-0">
+                    <div className="relative shrink-0 w-20 h-20 rounded-md bg-muted overflow-hidden">
+                        {service.imageUrl ? (
+                            <Image
+                                src={service.imageUrl}
+                                alt={service.name}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 640px) 4rem, 5rem"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center w-full h-full">
+                                <span className="text-base font-semibold text-black">{price || ""}</span>
+                            </div>
+                        )}
+                    </div>
 
-                <div className="flex-1">
-                    <CardTitle className="text-sm font-medium">
-                        <span>{service.name}</span>
-                    </CardTitle>
-                    {service.description && (
-                        <CardDescription className="mt-1">{service.description}</CardDescription>
-                    )}
-                    {price && (
-                        <div className="mt-2 text-sm font-semibold text-black">{price}</div>
-                    )}
-                </div>
+                    <div className="flex-1">
+                        <CardTitle className="text-sm font-medium">
+                            <span>{service.name}</span>
+                        </CardTitle>
+                        {service.description && (
+                            <CardDescription className="mt-1">{service.description}</CardDescription>
+                        )}
+                        {price && (
+                            <div className="mt-2 text-sm font-semibold text-black">{price}</div>
+                        )}
+                    </div>
 
-                <CardAction>
-                    <Button variant="default" size="sm" onClick={() => { }}>
-                        Reservar
-                    </Button>
-                </CardAction>
-            </CardHeader>
-        </Card>
+                    <CardAction>
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => setIsBookingOpen(true)}
+                        >
+                            Reservar
+                        </Button>
+                    </CardAction>
+                </CardHeader>
+            </Card>
+
+            {barbershop && (
+                <BookingSheet
+                    open={isBookingOpen}
+                    onOpenChange={setIsBookingOpen}
+                    service={service}
+                    barbershop={barbershop}
+                />
+            )}
+        </>
     );
 }
