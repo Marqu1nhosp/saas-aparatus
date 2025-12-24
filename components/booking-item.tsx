@@ -2,10 +2,11 @@
 
 import { AvatarImage } from "@radix-ui/react-avatar";
 
+import { getBookingStatus } from "@/lib/booking-utils";
+
 import { Avatar } from "./ui/avatar";
 import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
-import { getBookingStatus } from "@/lib/booking-utils";
 
 interface BookingItemProps {
     bookingId: string;
@@ -18,7 +19,6 @@ interface BookingItemProps {
 }
 
 export function BookingItem({
-    bookingId,
     serviceName,
     barbershopName,
     barbershopImageUrl,
@@ -58,21 +58,27 @@ export function BookingItem({
         "Dezembro",
     ];
 
-    const bookingDateObj = date instanceof Date ? date : new Date(date);
+    const bookingDateObj =
+        date instanceof Date ? date : new Date(date);
+
     const isValidDate = !isNaN(bookingDateObj.getTime());
 
     const month = isValidDate ? monthNames[bookingDateObj.getMonth()] : "";
     const day = isValidDate ? bookingDateObj.getDate() : 0;
-    const hours = isValidDate ? bookingDateObj.getHours().toString().padStart(2, "0") : "00";
-    const minutes = isValidDate ? bookingDateObj.getMinutes().toString().padStart(2, "0") : "00";
+    const hours = isValidDate
+        ? bookingDateObj.getHours().toString().padStart(2, "0")
+        : "00";
+    const minutes = isValidDate
+        ? bookingDateObj.getMinutes().toString().padStart(2, "0")
+        : "00";
     const time = `${hours}:${minutes}`;
 
     return (
         <Card
-            className="flex cursor-pointer flex-row items-center justify-between p-0 w-full"
+            className="flex h-full w-full cursor-pointer flex-row items-center justify-between p-0 mt-4"
             onClick={onClick}
         >
-            <div className="flex flex-1 flex-col gap-4 p-4 min-w-0 overflow-hidden">
+            <div className="flex flex-1 flex-col gap-4 p-4">
                 <Badge variant={badgeVariant}>{statusLabel}</Badge>
                 <div className="flex flex-col gap-2">
                     <p className="font-bold">{serviceName}</p>

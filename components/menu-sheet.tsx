@@ -1,5 +1,5 @@
+"use client"
 import { Calendar, Home, LogIn, LogOut, MenuIcon } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ export function MenuSheet() {
     const { data: session } = authClient.useSession();
 
     async function handleLogin() {
-        const { data, error } = await authClient.signIn.social({
+        const { error } = await authClient.signIn.social({
             provider: "google",
 
         });

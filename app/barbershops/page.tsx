@@ -1,5 +1,6 @@
 
-import { BarbershopItem } from "@/components/barbershop-item";
+
+import BarbershopItem from "@/components/barbershop-item";
 import Header from "@/components/header";
 import {
     PageContainer,

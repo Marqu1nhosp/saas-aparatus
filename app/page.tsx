@@ -1,17 +1,24 @@
-// eslint-disable-next-line simple-import-sort/imports
-import { BookingItem } from "@/components/booking-tem";
-import Header from "@/components/header";
-import banner from "@/public/banner.png";
 import Image from "next/image";
 
-import { BarbershopItem } from "@/components/barbershop-item";
+import { BookingsSection } from "@/app/_components/bookings-section";
+import BarbershopItem from "@/components/barbershop-item";
+import Header from "@/components/header";
+import QuickSearch from "@/components/quick-search";
 import { PageContainer, PageSectionContent, PageSectionScroller, PageSectionTitle } from "@/components/ui/page";
 import { getBarberShops, getPopularBarbershops } from "@/data/barbershops";
-import QuickSearch from "@/components/quick-search";
+import { getUserBookings } from "@/data/bookings";
+import banner from "@/public/banner.png";
+
 
 export default async function Home() {
   const barbershops = await getBarberShops();
   const popularBarbershops = await getPopularBarbershops();
+  const bookings = await getUserBookings();
+
+  const now = new Date();
+  const confirmedBookings = bookings.filter(
+    (booking) => !booking.cancelledAt && new Date(booking.date) >= now,
+  );
 
   return (
     <div>
@@ -19,12 +26,15 @@ export default async function Home() {
       <PageContainer>
         <QuickSearch />
         <Image src={banner} alt="Agende nos melhores com a Aparatus" sizes="100vw" className="h-auto w-full" />
-        <PageSectionContent>
-          <PageSectionTitle>
-            Agendamentos
-          </PageSectionTitle>
-          <BookingItem />
-        </PageSectionContent>
+
+        {confirmedBookings.length > 0 && (
+          <PageSectionContent>
+            <PageSectionTitle>
+              Agendamentos
+            </PageSectionTitle>
+            <BookingsSection bookings={confirmedBookings} />
+          </PageSectionContent>
+        )}
 
         <PageSectionContent>
           <PageSectionTitle>
@@ -32,7 +42,7 @@ export default async function Home() {
           </PageSectionTitle>
           <PageSectionScroller>
             {barbershops.map((barbershop) => (
-              < BarbershopItem key={barbershop.id} barbershop={barbershop} />
+              <BarbershopItem key={barbershop.id} barbershop={barbershop} />
             ))}
           </PageSectionScroller>
         </PageSectionContent>
@@ -43,11 +53,11 @@ export default async function Home() {
           </PageSectionTitle>
           <PageSectionScroller>
             {popularBarbershops.map((popularBarbershop) => (
-              < BarbershopItem key={popularBarbershop.id} barbershop={popularBarbershop} />
+              <BarbershopItem key={popularBarbershop.id} barbershop={popularBarbershop} />
             ))}
           </PageSectionScroller>
         </PageSectionContent>
       </PageContainer>
-    </div >
+    </div>
   );
 }

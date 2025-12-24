@@ -106,9 +106,10 @@ model Booking {
   userId       String
   barbershopId String
   serviceId    String
-  date         DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  date         DateTime @db.Timestamptz()
+  cancelledAt  DateTime? @db.Timestamptz() 
+  createdAt    DateTime @default(now()) @db.Timestamptz()
+  updatedAt    DateTime @updatedAt @db.Timestamptz()
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   barbershop Barbershop        @relation(fields: [barbershopId], references: [id], onDelete: Cascade)

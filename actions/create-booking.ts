@@ -1,61 +1,55 @@
 "use server";
 
+import { returnValidationErrors } from "next-safe-action";
 import { z } from "zod";
 
 import { protectedActionClient } from "@/lib/action-client";
-import { actionClient } from "@/lib/action-client";
+import prisma from "@/lib/prisma";
 
-const createBookingSchema = z.object({
-    barbershopId: z.string().uuid(),
+const inputSchema = z.object({
     serviceId: z.string().uuid(),
-    date: z.string().datetime(),
+    date: z.string().or(z.date()).transform((val) => {
+        if (typeof val === "string") {
+            // Parse ISO string with or without timezone offset
+            return new Date(val);
+        }
+        return val;
+    }),
 });
 
-export type CreateBookingInput = z.infer<typeof createBookingSchema>;
-
-export const createBooking = actionClient
-    .schema(createBookingSchema)
-    .action(async ({ parsedInput }) => {
-        const { prisma, user } = await protectedActionClient();
-
-        if (!user?.id) {
-            throw new Error("User not authenticated");
-        }
-
-        // Validate that the service exists and get its details
+export const createBooking = protectedActionClient
+    .inputSchema(inputSchema)
+    .action(async ({ parsedInput: { serviceId, date }, ctx: { user } }) => {
         const service = await prisma.barbershopService.findUnique({
-            where: { id: parsedInput.serviceId },
+            where: { id: serviceId },
         });
 
         if (!service) {
-            throw new Error("Service not found");
+            return returnValidationErrors(inputSchema, {
+                _errors: ["Serviço não encontrado"],
+            });
         }
 
-        // Validate that the barbershop exists
-        const barbershop = await prisma.barbershop.findUnique({
-            where: { id: parsedInput.barbershopId },
+        const existingBooking = await prisma.booking.findFirst({
+            where: { serviceId, date },
         });
 
-        if (!barbershop) {
-            throw new Error("Barbershop not found");
+        if (existingBooking) {
+            return returnValidationErrors(inputSchema, {
+                _errors: [
+                    "Já existe um agendamento para este serviço nesta data e hora",
+                ],
+            });
         }
 
-        // Create the booking
         const booking = await prisma.booking.create({
             data: {
-                barbershopId: parsedInput.barbershopId,
-                serviceId: parsedInput.serviceId,
-                date: new Date(parsedInput.date),
                 userId: user.id,
-            },
-            include: {
-                service: true,
-                barbershop: true,
+                barbershopId: service.barbershopId,
+                serviceId,
+                date,
             },
         });
 
-        return {
-            success: true,
-            booking,
-        };
+        return booking;
     });
