@@ -9,6 +9,7 @@ import {
     startOfWeek
 } from 'date-fns';
 
+import { BarbershopServiceStatus } from '@/generated/prisma/enums';
 import { prisma } from '@/lib/prisma';
 
 const SAO_PAULO_TIME_ZONE = 'America/Sao_Paulo';
@@ -203,6 +204,7 @@ export async function getWeeklyBookings(barbershopId: string): Promise<WeeklyBoo
     const bookings = await prisma.booking.findMany({
         where: {
             barbershopId,
+            cancelledAt: null,
             date: {
                 gte: weekStart,
                 lte: weekEnd,
@@ -236,6 +238,7 @@ export async function getMostPopularServices(barbershopId: string): Promise<Popu
         by: ['serviceId'],
         where: {
             barbershopId,
+            cancelledAt: null,
             date: {
                 gte: startOfCurrentMonth,
                 lte: endOfCurrentMonth,
@@ -272,10 +275,10 @@ export async function getBookings(barbershopId: string, date?: string): Promise<
     const todayInSaoPaulo = formatDateInSaoPaulo(now);
     const today = new Date(`${todayInSaoPaulo}T00:00:00-03:00`);
 
-    const where: { 
-        barbershopId: string; 
-        date?: { gte: Date; lte: Date } 
-    } = { 
+    const where: {
+        barbershopId: string;
+        date?: { gte: Date; lte: Date }
+    } = {
         barbershopId
     };
 
@@ -303,7 +306,7 @@ export async function getBookings(barbershopId: string, date?: string): Promise<
             user: true,
             employee: true,
         },
-    // Ordenação em JavaScript para lidar com lógica customizada
+        // Ordenação em JavaScript para lidar com lógica customizada
     });
 
     // Ordenar agendamentos: atuais/futuros primeiro (asc), depois passados (desc)
@@ -333,6 +336,7 @@ export async function getBookings(barbershopId: string, date?: string): Promise<
         return {
             id: booking.id,
             client: booking.user?.name || 'Desconhecido',
+            serviceId: booking.service?.id,
             service: booking.service?.name || 'Serviço desconhecido',
             professional: booking.employee?.name || 'Não atribuído',
             date: localDate,
@@ -352,6 +356,7 @@ export async function getFinancialMetrics(barbershopId: string): Promise<Financi
     const bookingsMonth = await prisma.booking.findMany({
         where: {
             barbershopId,
+            cancelledAt: null,
             date: {
                 gte: startOfCurrentMonth,
                 lte: endOfCurrentMonth,
@@ -410,6 +415,7 @@ export async function getMonthlyRevenue(barbershopId: string): Promise<MonthlyRe
         const bookings = await prisma.booking.findMany({
             where: {
                 barbershopId,
+                cancelledAt: null,
                 date: {
                     gte: startOfMonth,
                     lte: endOfMonth,
@@ -436,6 +442,21 @@ export async function getBarbershopName(barbershopId: string): Promise<string | 
     });
 
     return barbershop ? barbershop.name : null;
+}
+
+export async function getNewBookingCount(barbershopId: string): Promise<number> {
+    const since = new Date();
+    since.setDate(since.getDate() - 1);
+
+    return await prisma.booking.count({
+        where: {
+            barbershopId,
+            cancelledAt: null,
+            createdAt: {
+                gte: since,
+            },
+        },
+    });
 }
 
 export async function getBarbershop(barbershopId: string) {
@@ -570,11 +591,16 @@ export async function getServicesForBarbershop(barbershopId: string) {
     const services = await prisma.barbershopService.findMany({
         where: {
             barbershopId,
+            status: BarbershopServiceStatus.ACTIVE,
         },
         select: {
             id: true,
             name: true,
+            description: true,
             priceInCents: true,
+            durationMinutes: true,
+            status: true,
+            imageUrl: true,
         },
         orderBy: {
             name: 'asc',

@@ -28,15 +28,22 @@ model Barbershop {
 }
 
 model BarbershopService {
-  id           String @id @default(uuid())
-  name         String
-  description  String
-  imageUrl     String
-  priceInCents Int
-  barbershopId String
+  id              String                    @id @default(uuid())
+  name            String
+  description     String
+  imageUrl        String
+  priceInCents    Int
+  durationMinutes Int
+  status          BarbershopServiceStatus  @default(ACTIVE)
+  barbershopId    String
 
   barbershop Barbershop @relation(fields: [barbershopId], references: [id], onDelete: Cascade)
   bookings   Booking[]
+}
+
+enum BarbershopServiceStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum Role {
@@ -153,3 +160,4 @@ model Booking {
   @@index([employeeId])
   @@map("booking")
 }
+

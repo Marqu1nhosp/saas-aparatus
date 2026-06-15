@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import z from "zod";
 
+import { checkTimeAvailability, findAvailableEmployee } from "@/lib/business-hours-utils";
 import prisma from "@/lib/prisma";
 
 const metadataSchema = z.object({
@@ -66,18 +67,53 @@ export const POST = async (req: Request) => {
                     ? paymentIntent.latest_charge
                     : paymentIntent.latest_charge?.id;
 
+                const service = await prisma.barbershopService.findUnique({
+                    where: { id: metadata.serviceId },
+                });
 
+                if (!service) {
+                    throw new Error('Serviço não encontrado para o agendamento.');
+                }
 
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const booking = await prisma.booking.create({
+                const employeeId = metadata.employeeId && metadata.employeeId !== "auto"
+                    ? metadata.employeeId
+                    : undefined;
+
+                const availability = await checkTimeAvailability(
+                    metadata.barbershopId,
+                    new Date(metadata.date),
+                    service.durationMinutes,
+                    employeeId,
+                );
+
+                if (!availability.available) {
+                    throw new Error(`Horário indisponível: ${availability.reason ?? 'agendamento não pode ser concluído'}`);
+                }
+
+                let assignedEmployeeId = employeeId;
+                if (!assignedEmployeeId) {
+                    const availableEmployee = await findAvailableEmployee(
+                        metadata.barbershopId,
+                        new Date(metadata.date),
+                        service.durationMinutes,
+                    );
+
+                    if (!availableEmployee) {
+                        throw new Error('Nenhum barbeiro disponível para este horário.');
+                    }
+
+                    assignedEmployeeId = availableEmployee.id;
+                }
+
+                await prisma.booking.create({
                     data: {
                         serviceId: metadata.serviceId,
                         barbershopId: metadata.barbershopId,
                         userId: metadata.userId,
                         date: new Date(metadata.date),
-                        employeeId: metadata.employeeId && metadata.employeeId !== "auto" ? metadata.employeeId : undefined,
+                        employeeId: assignedEmployeeId,
                         stripeChargeId: chargeId,
-                    }
+                    },
                 });
             } catch (error) {
                 console.error("❌ Erro ao processar checkout:", error instanceof Error ? error.message : error);

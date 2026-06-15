@@ -21,6 +21,7 @@ type ServiceItemProps = {
         description?: string | null;
         priceInCents?: number | null;
         imageUrl?: string | null;
+        durationMinutes: number;
         barbershopId: string;
     };
     barbershop: Barbershop;
@@ -74,6 +75,9 @@ export function ServiceItem({ service, barbershop }: ServiceItemProps) {
                                 {price}
                             </div>
                         )}
+                        <div className="mt-1 text-xs text-muted-foreground">
+                            Duração: {service.durationMinutes} min
+                        </div>
                     </div>
 
                     {/* Action */}

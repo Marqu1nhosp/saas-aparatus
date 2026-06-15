@@ -4,17 +4,13 @@ import { returnValidationErrors } from "next-safe-action";
 import { z } from "zod";
 
 import { protectedActionClient } from "@/lib/action-client";
-import { checkTimeAvailability } from "@/lib/business-hours-utils";
+import { checkTimeAvailability, findAvailableEmployee } from "@/lib/business-hours-utils";
 import prisma from "@/lib/prisma";
 
 const inputSchema = z.object({
     serviceId: z.string().uuid(),
-    date: z.string().or(z.date()).transform((val) => {
-        if (typeof val === "string") {
-            // Parse ISO string with or without timezone offset
-            return new Date(val);
-        }
-        return val;
+    date: z.coerce.date().refine((date) => !Number.isNaN(date.getTime()), {
+        message: "Data inválida",
     }),
     employeeId: z.string().uuid().optional(),
 });
@@ -32,11 +28,12 @@ export const createBooking = protectedActionClient
             });
         }
 
-        // Se um barbeiro foi escolhido, validar se existe e pertence à barbearia
-        if (employeeId) {
+        let selectedEmployeeId = employeeId;
+
+        if (selectedEmployeeId) {
             const employee = await prisma.user.findFirst({
                 where: {
-                    id: employeeId,
+                    id: selectedEmployeeId,
                     barbershopId: service.barbershopId,
                     role: "EMPLOYEE",
                 },
@@ -47,48 +44,35 @@ export const createBooking = protectedActionClient
                     _errors: ["Barbeiro não encontrado ou não pertence a esta barbearia"],
                 });
             }
-
-            // Verificar disponibilidade específica do barbeiro
-            const employeeBookingAtTime = await prisma.booking.findFirst({
-                where: {
-                    employeeId,
-                    date,
-                    cancelledAt: null,
-                },
-            });
-
-            if (employeeBookingAtTime) {
-                return returnValidationErrors(inputSchema, {
-                    _errors: ["Este barbeiro não está disponível para este horário"],
-                });
-            }
         }
 
-        // Check if time is available according to business hours
-        const timeAvailability = await checkTimeAvailability(service.barbershopId, date);
+        const timeAvailability = await checkTimeAvailability(
+            service.barbershopId,
+            date,
+            service.durationMinutes,
+            selectedEmployeeId,
+        );
+
         if (!timeAvailability.available) {
             return returnValidationErrors(inputSchema, {
                 _errors: [timeAvailability.reason || "Horário indisponível"],
             });
         }
 
-        // Se não especificou barbeiro, verificar se algum está disponível
-        if (!employeeId) {
-            const availableEmployee = await prisma.user.findFirst({
-                where: {
-                    barbershopId: service.barbershopId,
-                    role: "EMPLOYEE",
-                },
-                orderBy: {
-                    createdAt: "asc", // Pega o primeiro (pode ser aleatório depois)
-                },
-            });
+        if (!selectedEmployeeId) {
+            const availableEmployee = await findAvailableEmployee(
+                service.barbershopId,
+                date,
+                service.durationMinutes,
+            );
 
             if (!availableEmployee) {
                 return returnValidationErrors(inputSchema, {
                     _errors: ["Nenhum barbeiro disponível nesta barbearia"],
                 });
             }
+
+            selectedEmployeeId = availableEmployee.id;
         }
 
         const booking = await prisma.booking.create({
@@ -97,7 +81,7 @@ export const createBooking = protectedActionClient
                 barbershopId: service.barbershopId,
                 serviceId,
                 date,
-                employeeId: employeeId || undefined,
+                employeeId: selectedEmployeeId,
             },
         });
 

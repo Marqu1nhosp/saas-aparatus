@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "BarbershopServiceStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
+-- CreateEnum
 CREATE TYPE "Role" AS ENUM ('ADMIN', 'EMPLOYEE', 'CLIENT');
 
 -- CreateTable
@@ -21,6 +24,8 @@ CREATE TABLE "BarbershopService" (
     "description" TEXT NOT NULL,
     "imageUrl" TEXT NOT NULL,
     "priceInCents" INTEGER NOT NULL,
+    "durationMinutes" INTEGER NOT NULL,
+    "status" "BarbershopServiceStatus" NOT NULL DEFAULT 'ACTIVE',
     "barbershopId" TEXT NOT NULL,
 
     CONSTRAINT "BarbershopService_pkey" PRIMARY KEY ("id")
@@ -170,7 +175,7 @@ ALTER TABLE "booking" ADD CONSTRAINT "booking_userId_fkey" FOREIGN KEY ("userId"
 ALTER TABLE "booking" ADD CONSTRAINT "booking_barbershopId_fkey" FOREIGN KEY ("barbershopId") REFERENCES "Barbershop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "booking" ADD CONSTRAINT "booking_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "booking" ADD CONSTRAINT "booking_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "BarbershopService"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "booking" ADD CONSTRAINT "booking_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "BarbershopService"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "booking" ADD CONSTRAINT "booking_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;

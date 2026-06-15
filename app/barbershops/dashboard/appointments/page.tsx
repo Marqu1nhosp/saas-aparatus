@@ -25,6 +25,7 @@ import { NewAppointmentDialog } from './_components/new-appointment-dialog';
 interface BookingData {
     id: string;
     client: string;
+    serviceId?: string;
     service: string;
     professional: string;
     date: string;
@@ -287,13 +288,14 @@ export default function AppointmentsPage() {
                                         <TableCell className="text-slate-600">{booking.time}</TableCell>
                                         <TableCell>
                                             <Badge className={`${getStatusColor(booking.status)} font-medium rounded-full`}>
-                                                {booking.status}
+                                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="flex justify-center items-center">
                                             <BookingActionsDialog
                                                 bookingId={booking.id}
                                                 barbershopId={barbershopId}
+                                                serviceId={booking.serviceId}
                                                 clientName={booking.client}
                                                 serviceName={booking.service}
                                                 currentDate={format(parseISO(booking.date), "dd/MM/yyyy")}
@@ -351,6 +353,7 @@ export default function AppointmentsPage() {
                                     <BookingActionsDialog
                                         bookingId={booking.id}
                                         barbershopId={barbershopId}
+                                        serviceId={booking.serviceId}
                                         clientName={booking.client}
                                         serviceName={booking.service}
                                         currentDate={format(parseISO(booking.date), "dd/MM/yyyy")}

@@ -80,12 +80,19 @@ export function NewAppointmentDialog({
         const loadTimeSlots = async () => {
             setIsLoadingTimeSlots(true);
             try {
+                if (!formData.serviceId) {
+                    setAvailableTimeSlots([]);
+                    setFormData((prev) => ({ ...prev, time: '' }));
+                    return;
+                }
+
                 // Corrigir timezone: split a data e criar no fuso horário local
                 const [year, month, day] = formData.date.split('-').map(Number);
                 const date = new Date(year, month - 1, day, 0, 0, 0, 0);
 
                 const result = await getDateAvailableTimeSlots({
                     barbershopId,
+                    serviceId: formData.serviceId,
                     date,
                 });
 
@@ -190,6 +197,10 @@ export function NewAppointmentDialog({
                 toast.success('Agendamento criado com sucesso');
                 setFormData({ clientId: '', serviceId: '', date: '', time: '' });
                 onClose();
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event('dashboard-booking-created'));
+                    localStorage.setItem('lastBookingTime', Date.now().toString());
+                }
                 onSuccess();
             } else {
                 const errorMessage = result.validationErrors?.['_errors']?.[0] || JSON.stringify(result.validationErrors) || 'Erro ao criar agendamento';

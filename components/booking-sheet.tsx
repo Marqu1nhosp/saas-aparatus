@@ -1,17 +1,23 @@
 "use client";
 
-
-import { loadStripe } from "@stripe/stripe-js";
 import Image from "next/image";
 import { useAction } from "next-safe-action/hooks";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { createBookingCheckoutSession } from "@/actions/create-booking-checkout-session";
+import { createBooking } from "@/actions/create-booking";
 import { BookingSummary } from "@/components/booking-summary";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -30,6 +36,7 @@ interface BookingSheetProps {
     barbershopId: string;
     priceInCents?: number | null;
     imageUrl?: string | null;
+    durationMinutes: number;
   };
   barbershop: Barbershop;
 }
@@ -49,11 +56,11 @@ export function BookingSheet({
   const [selectedEmployee, setSelectedEmployee] = useState<string | undefined>(
     undefined
   );
-  const [sheetIsOpen, setSheetIsOpen] = useState(false);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const timeScrollRef = useRef<HTMLDivElement>(null);
   const employeesScrollRef = useRef<HTMLDivElement>(null);
   const employeesUnavailableScrollRef = useRef<HTMLDivElement>(null);
-  
+
   // Use refs instead of state for drag tracking to avoid stale closure issues
   const dragStateRef = useRef({
     isDragging: false,
@@ -82,7 +89,7 @@ export function BookingSheet({
     const pageX = 'touches' in e ? e.touches[0].pageX : (e as React.MouseEvent).pageX;
     const walk = (pageX - dragStateRef.current.startX) * 2;
     dragStateRef.current.dragDistance = Math.abs(walk);
-    
+
     const newScrollLeft = dragStateRef.current.scrollLeft - walk;
     ref.current.scrollLeft = newScrollLeft;
   };
@@ -121,8 +128,9 @@ export function BookingSheet({
 
   const { data: availableTimeSlots } = useGetDateAvailableTimeSlots({
     barbershopId: service.barbershopId,
+    serviceId: service.id,
     date: selectedDate,
-  })
+  });
 
   // Build the dateTime for employee availability check
   const employeeDateTimeCheck = selectedDate && selectedTime
@@ -143,37 +151,32 @@ export function BookingSheet({
   const { data: availableEmployees, isPending: isLoadingEmployees } = useGetAvailableEmployees({
     barbershopId: service.barbershopId,
     dateTime: employeeDateTimeCheck,
+    durationMinutes: service.durationMinutes,
   });
-  
+
   const now = new Date();
 
+  const selectedEmployeeName = selectedEmployee
+    ? availableEmployees?.available?.find((employee) => employee.id === selectedEmployee)?.name
+    ?? availableEmployees?.unavailable?.find((employee) => employee.id === selectedEmployee)?.name
+    ?? selectedEmployee
+    : undefined;
 
   const { execute: executeCreateBooking, isPending: isCreateBooking } = useAction(
-    createBookingCheckoutSession,
+    createBooking,
     {
-      async onSuccess(result) {
-        const checkoutSession = result.data;
-        if (!checkoutSession.url) {
-          return toast.error("Não foi possível iniciar o processo de pagamento. Tente novamente.");
-        }
-
-        if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-          return toast.error("Chave de publicação do Stripe não está definida.");
-        }
-
-        const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-        if (!stripe) {
-          return toast.error("Não foi possível iniciar o processo de agendamento. Tente novamente.");
-        }
-
-        await stripe.redirectToCheckout({
-          sessionId: checkoutSession.id,
-        });
-
-
+      async onSuccess() {
+        toast.success("Agendamento confirmado com sucesso.");
+        setIsReviewDialogOpen(false);
         onOpenChange(false);
         setSelectedDate(undefined);
         setSelectedTime(undefined);
+        setSelectedEmployee(undefined);
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('dashboard-booking-created'));
+          localStorage.setItem('lastBookingTime', Date.now().toString());
+        }
       },
 
       onError(result) {
@@ -181,13 +184,12 @@ export function BookingSheet({
           result.error?.validationErrors?._errors?.[0] ??
           result.error?.serverError ??
           (result.error as Error)?.message ??
-          "Por favor, faça um login para fazer um agendamento!";
+          "Não foi possível confirmar o agendamento. Tente novamente.";
 
         toast.error(message);
       },
     }
   );
-
 
   const handleDaySelect = (date: Date) => {
     setSelectedDate(date);
@@ -196,6 +198,11 @@ export function BookingSheet({
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
+  };
+
+  const handleStartReview = () => {
+    if (!selectedDate || !selectedTime) return;
+    setIsReviewDialogOpen(true);
   };
 
   const handleConfirmBooking = async () => {
@@ -219,7 +226,7 @@ export function BookingSheet({
       employeeId: selectedEmployee,
     });
 
-    setSheetIsOpen(false);
+    setIsReviewDialogOpen(false);
     setSelectedDate(undefined);
     setSelectedTime(undefined);
     setSelectedEmployee(undefined);
@@ -250,7 +257,7 @@ export function BookingSheet({
           <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase">Horário</h3>
             {availableTimeSlots?.data && availableTimeSlots.data.length > 0 ? (
-              <div 
+              <div
                 ref={timeScrollRef}
                 className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden pb-2 cursor-grab active:cursor-grabbing select-none"
                 onMouseDown={(e) => handleDragStart(timeScrollRef, "time", e)}
@@ -319,7 +326,7 @@ export function BookingSheet({
                 {availableEmployees.available.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Disponíveis</p>
-                    <div 
+                    <div
                       ref={employeesScrollRef}
                       className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden pb-2 cursor-grab active:cursor-grabbing select-none"
                       onMouseDown={(e) => handleDragStart(employeesScrollRef, "available", e)}
@@ -363,7 +370,7 @@ export function BookingSheet({
                 {availableEmployees.unavailable.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Indisponíveis</p>
-                    <div 
+                    <div
                       ref={employeesUnavailableScrollRef}
                       className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden pb-2 opacity-50 cursor-grab active:cursor-grabbing select-none"
                       onMouseDown={(e) => handleDragStart(employeesUnavailableScrollRef, "unavailable", e)}
@@ -423,12 +430,58 @@ export function BookingSheet({
 
         {/* Confirm Button */}
         <Button
-          onClick={handleConfirmBooking}
-          disabled={!selectedDate || !selectedTime || isCreateBooking || sheetIsOpen}
+          onClick={handleStartReview}
+          disabled={!selectedDate || !selectedTime || isCreateBooking}
           className="w-full mt-auto"
         >
-          {isCreateBooking ? "Confirmando..." : "Confirmar agendamento"}
+          Revisar agendamento
         </Button>
+
+        <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar agendamento</DialogTitle>
+              <DialogDescription>
+                Verifique as informações abaixo antes de concluir o agendamento.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4 text-sm text-slate-700">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Serviço</p>
+                <p>{service.name}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Data</p>
+                  <p>{selectedDate?.toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Hora</p>
+                  <p>{selectedTime}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Barbeiro</p>
+                <p>{selectedEmployeeName ?? 'Atribuído automaticamente'}</p>
+              </div>
+            </div>
+            <DialogFooter className="gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setIsReviewDialogOpen(false)}
+                disabled={isCreateBooking}
+              >
+                Voltar
+              </Button>
+              <Button
+                onClick={handleConfirmBooking}
+                disabled={isCreateBooking}
+              >
+                {isCreateBooking ? "Confirmando..." : "Confirmar agendamento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </SheetContent>
     </Sheet>
   );

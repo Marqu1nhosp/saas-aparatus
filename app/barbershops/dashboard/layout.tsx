@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, Calendar, DollarSign, Menu, Settings, Users, X } from 'lucide-react';
+import { BarChart3, Bell, Calendar, DollarSign, Menu, Scissors, Settings, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 
@@ -33,6 +33,11 @@ const navItems = [
         icon: DollarSign,
     },
     {
+        href: '/barbershops/dashboard/services',
+        label: 'Serviços',
+        icon: Scissors,
+    },
+    {
         href: '/barbershops/dashboard/settings',
         label: 'Configurações',
         icon: Settings,
@@ -42,13 +47,14 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
     const [barbershopName, setBarbershopName] = useState<string | null>(null);
+    const [newBookingCount, setNewBookingCount] = useState(0);
     const { user } = useDashboardSession();
 
 
     const filteredNavItems = navItems.filter((item) => {
-        // Se for funcionário, esconde Profissionais, Financeiro e Configurações
+        // Se for funcionário, esconde Profissionais, Financeiro, Serviços e Configurações
         if (user?.role === 'EMPLOYEE') {
-            return !['professionals', 'financial', 'settings'].some(keyword => item.href.includes(keyword));
+            return !['professionals', 'financial', 'services', 'settings'].some(keyword => item.href.includes(keyword));
         }
         return true;
     });
@@ -75,8 +81,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         fetchBarbershop();
     }, []);
 
+    useEffect(() => {
+        const loadBookingCount = async () => {
+            if (!user?.barbershopId) {
+                setNewBookingCount(0);
+                return;
+            }
+
+            try {
+                const authToken = localStorage.getItem('dashboard_auth_token');
+                const headers: Record<string, string> = {};
+                if (authToken) {
+                    headers.Authorization = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch('/api/dashboard/new-bookings', {
+                    cache: 'no-store',
+                    credentials: 'include',
+                    headers,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setNewBookingCount(data.newBookingCount ?? 0);
+                }
+            } catch (error) {
+                setNewBookingCount(0);
+            }
+        };
+
+        loadBookingCount();
+        const intervalId = window.setInterval(loadBookingCount, 15000);
+        const handleNewBooking = () => {
+            loadBookingCount();
+        };
+
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'lastBookingTime') {
+                loadBookingCount();
+            }
+        };
+
+        window.addEventListener('dashboard-booking-created', handleNewBooking);
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('dashboard-booking-created', handleNewBooking);
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [user?.barbershopId]);
+
     return (
-            <div className="flex min-h-screen bg-slate-50">
+        <div className="flex min-h-screen bg-slate-50">
             <DashboardSessionSync />
             {/* Sidebar Desktop */}
             <aside className="fixed left-0 top-0 z-40 hidden md:flex w-64 h-screen bg-gradient-to-b from-slate-900 to-slate-950 text-white shadow-xl">
@@ -173,13 +230,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Mobile Header */}
                 <div className="md:hidden sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between h-16 px-4">
-                        <h1 className="text-lg font-semibold text-slate-900 truncate">{barbershopName || 'Barbearia'}</h1>
-                        <button
-                            onClick={() => setIsOpen(true)}
-                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                        >
-                            <Menu className="w-6 h-6 text-slate-600" />
-                        </button>
+                        <h1 className="text-lg font-semibold text-slate-900 truncate flex-1">{barbershopName || 'Barbearia'}</h1>
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <button
+                                    onClick={() => (window as any).mobileNotificationOpen = !(window as any).mobileNotificationOpen}
+                                    title={newBookingCount > 0 ? `${newBookingCount} novo(s) agendamento(s)` : 'Agendamentos'}
+                                    className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                                >
+                                    <Bell className="w-5 h-5 text-slate-600" />
+                                    {newBookingCount > 0 && (
+                                        <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">
+                                            {newBookingCount > 9 ? '9+' : newBookingCount}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                            <button
+                                onClick={() => setIsOpen(true)}
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                            >
+                                <Menu className="w-6 h-6 text-slate-600" />
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -192,6 +265,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {children}
                 </div>
             </main>
-            </div>
+        </div>
     );
 }

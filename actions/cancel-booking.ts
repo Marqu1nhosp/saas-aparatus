@@ -67,6 +67,7 @@ export const cancelBooking = protectedActionClient
                     charge: booking.stripeChargeId,
                     reason: 'requested_by_customer',
                 });
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
                 return returnValidationErrors(inputSchema, {
                     _errors: ["Não foi possível processar o reembolso pelo Stripe"],
@@ -78,6 +79,10 @@ export const cancelBooking = protectedActionClient
             where: { id: bookingId },
             data: {
                 cancelledAt: new Date(),
+            },
+            include: {
+                user: true,
+                service: true,
             },
         });
 

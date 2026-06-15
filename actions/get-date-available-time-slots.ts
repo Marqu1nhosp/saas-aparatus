@@ -7,34 +7,10 @@ import prisma from "@/lib/prisma";
 
 const inputSchema = z.object({
     barbershopId: z.string().uuid(),
+    serviceId: z.string().uuid(),
     date: z.date(),
 });
 
-const TIME_SLOTS = [
-    "08:00",
-    "08:30",
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "13:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-    "17:00",
-    "17:30",
-    "18:00",
-    "18:30",
-    "19:00",
-    "19:30",
-    "20:00",
-    "20:30",
-] as const;
 const SAO_PAULO_TIME_ZONE = "America/Sao_Paulo";
 
 function getDatePartsInSaoPaulo(date: Date) {
@@ -50,15 +26,6 @@ function getDatePartsInSaoPaulo(date: Date) {
     const day = parts.find((part) => part.type === "day")?.value ?? "01";
 
     return { year, month, day, ymd: `${year}-${month}-${day}` };
-}
-
-function getTimeInSaoPaulo(date: Date): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        timeZone: SAO_PAULO_TIME_ZONE,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-    }).format(date);
 }
 
 function getDayOfWeekInSaoPaulo(date: Date): number {
@@ -85,17 +52,54 @@ function createSaoPauloDateTime(ymd: string, time: string): Date {
 }
 
 function compareTime(time1: string, time2: string): number {
-    const [h1, m1] = time1.split(':').map(Number);
-    const [h2, m2] = time2.split(':').map(Number);
+    const [h1, m1] = time1.split(":").map(Number);
+    const [h2, m2] = time2.split(":").map(Number);
     const mins1 = h1 * 60 + m1;
     const mins2 = h2 * 60 + m2;
     return mins1 - mins2;
 }
 
+function addMinutes(date: Date, minutes: number) {
+    return new Date(date.getTime() + minutes * 60000);
+}
+
+function addMinutesToTime(time: string, minutes: number): string {
+    const [hours, mins] = time.split(":").map(Number);
+    const totalMinutes = hours * 60 + mins + minutes;
+    const resultHours = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+    const resultMinutes = (totalMinutes % 60).toString().padStart(2, "0");
+    return `${resultHours}:${resultMinutes}`;
+}
+
+function intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
+    return startA < endB && startB < endA;
+}
+
+function generateTimeSlots(
+    intervalStart: string,
+    intervalEnd: string,
+    durationMinutes: number,
+) {
+    const slots: string[] = [];
+    let currentSlot = intervalStart;
+
+    while (compareTime(addMinutesToTime(currentSlot, durationMinutes), intervalEnd) <= 0) {
+        slots.push(currentSlot);
+        currentSlot = addMinutesToTime(currentSlot, durationMinutes);
+    }
+
+    return slots;
+}
+
 function isTimeInPast(timeSlot: string, selectedDateYmd: string): boolean {
     const now = new Date();
     const nowYmd = getDatePartsInSaoPaulo(now).ymd;
-    const nowTime = getTimeInSaoPaulo(now);
+    const nowTime = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: SAO_PAULO_TIME_ZONE,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    }).format(now);
 
     const slotTime = createSaoPauloDateTime(selectedDateYmd, timeSlot);
     const nowInSaoPaulo = createSaoPauloDateTime(nowYmd, nowTime);
@@ -105,7 +109,7 @@ function isTimeInPast(timeSlot: string, selectedDateYmd: string): boolean {
 
 export const getDateAvailableTimeSlots = actionClient
     .inputSchema(inputSchema)
-    .action(async ({ parsedInput: { barbershopId, date } }) => {
+    .action(async ({ parsedInput: { barbershopId, serviceId, date } }) => {
         const now = new Date();
 
         const selectedDateYmd = getDatePartsInSaoPaulo(date).ymd;
@@ -117,13 +121,36 @@ export const getDateAvailableTimeSlots = actionClient
             return [];
         }
 
-        // Get business hours for the day
+        const service = await prisma.barbershopService.findUnique({
+            where: { id: serviceId },
+            select: {
+                durationMinutes: true,
+                barbershopId: true,
+            },
+        });
+
+        if (!service || service.barbershopId !== barbershopId) {
+            return [];
+        }
+
+        const serviceDurationMinutes = service.durationMinutes;
+
         const businessHours = await getBusinessHours(barbershopId);
         const dayOfWeek = getDayOfWeekInSaoPaulo(date);
-        const dayHours = businessHours.find(h => h.dayOfWeek === dayOfWeek);
+        const dayHours = businessHours.find((h) => h.dayOfWeek === dayOfWeek);
 
-        // Check if shop is closed
         if (!dayHours || dayHours.isClosed) {
+            return [];
+        }
+
+        const employeesCount = await prisma.user.count({
+            where: {
+                barbershopId,
+                role: "EMPLOYEE",
+            },
+        });
+
+        if (employeesCount === 0) {
             return [];
         }
 
@@ -136,46 +163,46 @@ export const getDateAvailableTimeSlots = actionClient
                 },
                 cancelledAt: null,
             },
+            include: {
+                service: {
+                    select: {
+                        durationMinutes: true,
+                    },
+                },
+            },
         });
 
-        const occupiedTimeSlots = bookings.map(booking => getTimeInSaoPaulo(booking.date));
+        const bookedIntervals = bookings.map((booking) => {
+            const bookingStart = booking.date;
+            const bookingEnd = addMinutes(bookingStart, booking.service.durationMinutes);
+            return { bookingStart, bookingEnd };
+        });
 
-        // Check if the selected date is today
+        const morningSlots = dayHours.lunchStart && dayHours.lunchEnd
+            ? generateTimeSlots(dayHours.openingTime!, dayHours.lunchStart, serviceDurationMinutes)
+            : generateTimeSlots(dayHours.openingTime!, dayHours.closingTime!, serviceDurationMinutes);
+
+        const afternoonSlots = dayHours.lunchStart && dayHours.lunchEnd
+            ? generateTimeSlots(dayHours.lunchEnd, dayHours.closingTime!, serviceDurationMinutes)
+            : [];
+
+        const allSlots = [...morningSlots, ...afternoonSlots];
         const isToday = selectedDateYmd === todayYmd;
 
-        // Filter time slots based on business hours
-        const availableTimeSlots = TIME_SLOTS.filter(timeSlot => {
-            // Check if slot is within business hours
-            if (compareTime(timeSlot, dayHours.openingTime!) < 0) {
-                return false;
-            }
-            if (compareTime(timeSlot, dayHours.closingTime!) >= 0) {
+        const availableTimeSlots = allSlots.filter((slotTime) => {
+            if (isToday && isTimeInPast(slotTime, selectedDateYmd)) {
                 return false;
             }
 
-            // Check if slot is during lunch break
-            if (dayHours.lunchStart && dayHours.lunchEnd) {
-                if (compareTime(timeSlot, dayHours.lunchStart) >= 0 && compareTime(timeSlot, dayHours.lunchEnd) < 0) {
-                    return false;
-                }
-            }
+            const slotStart = createSaoPauloDateTime(selectedDateYmd, slotTime);
+            const slotEnd = addMinutes(slotStart, serviceDurationMinutes);
 
-            // Check if already booked
-            if (occupiedTimeSlots.includes(timeSlot)) {
-                return false;
-            }
+            const overlappingBookings = bookedIntervals.filter(({ bookingStart, bookingEnd }) =>
+                intervalsOverlap(slotStart, slotEnd, bookingStart, bookingEnd),
+            ).length;
 
-            // Only exclude past times if it's today
-            if (isToday) {
-                if (isTimeInPast(timeSlot, selectedDateYmd)) {
-                    return false;
-                }
-            }
-
-            return true;
+            return overlappingBookings < employeesCount;
         });
 
-        // Retornar horários disponíveis
         return availableTimeSlots;
-
     });

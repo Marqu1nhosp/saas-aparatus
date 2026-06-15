@@ -5,11 +5,14 @@ import Stripe from "stripe";
 import { z } from "zod";
 
 import { protectedActionClient } from "@/lib/action-client";
+import { checkTimeAvailability } from "@/lib/business-hours-utils";
 import prisma from "@/lib/prisma";
 
 const inputSchema = z.object({
     serviceId: z.uuid(),
-    date: z.coerce.date(),
+    date: z.coerce.date().refine((date) => !Number.isNaN(date.getTime()), {
+        message: "Data inválida",
+    }),
     employeeId: z.string().uuid().optional(),
 });
 
@@ -17,7 +20,7 @@ export const createBookingCheckoutSession = protectedActionClient
     .inputSchema(inputSchema)
     .action(async ({ parsedInput: { serviceId, date, employeeId }, ctx: { user } }) => {
         if (!process.env.STRIPE_SECRET_KEY) {
-            returnValidationErrors(inputSchema, {
+            return returnValidationErrors(inputSchema, {
                 _errors: ["Chave secreta do Stripe não está definida"],
             });
         }
@@ -30,14 +33,27 @@ export const createBookingCheckoutSession = protectedActionClient
         });
 
         if (!service) {
-            returnValidationErrors(inputSchema, {
+            return returnValidationErrors(inputSchema, {
                 _errors: ["Serviço não encontrado"],
             });
         }
 
         if (isPast(date)) {
-            returnValidationErrors(inputSchema, {
+            return returnValidationErrors(inputSchema, {
                 date: ["A data e hora do agendamento devem ser no futuro"],
+            });
+        }
+
+        const availability = await checkTimeAvailability(
+            service.barbershopId,
+            date,
+            service.durationMinutes,
+            employeeId && employeeId !== 'auto' ? employeeId : undefined,
+        );
+
+        if (!availability.available) {
+            return returnValidationErrors(inputSchema, {
+                _errors: [availability.reason || "Horário indisponível"],
             });
         }
 

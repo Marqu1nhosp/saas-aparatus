@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import Image from 'next/image';
@@ -34,6 +35,7 @@ import { Label } from '@/components/ui/label';
 interface BookingActionsDialogProps {
     bookingId: string;
     barbershopId: string;
+    serviceId?: string;
     clientName: string;
     serviceName: string;
     currentDate: string;
@@ -45,6 +47,7 @@ interface BookingActionsDialogProps {
 export function BookingActionsDialog({
     bookingId,
     barbershopId,
+    serviceId,
     clientName,
     serviceName,
     currentDate,
@@ -78,8 +81,15 @@ export function BookingActionsDialog({
                 const [year, month, day] = newDate.split('-').map(Number);
                 const date = new Date(year, month - 1, day, 0, 0, 0, 0);
 
+                if (!serviceId) {
+                    setAvailableTimeSlots([]);
+                    setTimeSlotError('Selecione um serviço válido para buscar horários.');
+                    return;
+                }
+
                 const result = await getDateAvailableTimeSlots({
                     barbershopId,
+                    serviceId,
                     date,
                 });
 
@@ -140,7 +150,7 @@ export function BookingActionsDialog({
                 }
 
                 setAvailableEmployees(employees);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
                 setAvailableEmployees({ available: [], unavailable: [] });
             } finally {
@@ -336,11 +346,10 @@ export function BookingActionsDialog({
                                                     <button
                                                         key={employee.id}
                                                         onClick={() => setSelectedEmployee(employee.id)}
-                                                        className={`w-full flex items-center gap-3 p-2 rounded-lg border transition-colors text-left ${
-                                                            selectedEmployee === employee.id
-                                                                ? 'border-blue-500 bg-blue-50'
-                                                                : 'border-slate-300 bg-white hover:bg-slate-50'
-                                                        }`}
+                                                        className={`w-full flex items-center gap-3 p-2 rounded-lg border transition-colors text-left ${selectedEmployee === employee.id
+                                                            ? 'border-blue-500 bg-blue-50'
+                                                            : 'border-slate-300 bg-white hover:bg-slate-50'
+                                                            }`}
                                                     >
                                                         {employee.image && (
                                                             <div className="relative shrink-0 w-8 h-8 rounded-md bg-slate-200 overflow-hidden">
@@ -430,13 +439,13 @@ export function BookingActionsDialog({
                             Você tem certeza que deseja cancelar este agendamento?
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    
+
                     <div className="p-3 bg-slate-100 rounded-lg text-slate-900 text-sm space-y-2">
                         <div><strong>Cliente:</strong> {clientName}</div>
                         <div><strong>Serviço:</strong> {serviceName}</div>
                         <div><strong>Data/Hora:</strong> {currentDate} às {currentTime}</div>
                     </div>
-                    
+
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isCancelling}>
                             Voltar
@@ -460,11 +469,10 @@ export function BookingActionsDialog({
                     onClick={() => setIsEditDialogOpen(true)}
                     disabled={isDatePassed || !!cancelledAt}
                     title={cancelledAt ? 'Não é possível editar agendamentos cancelados' : isDatePassed ? 'Não é possível editar agendamentos passados' : ''}
-                    className={`border-slate-300 text-slate-700 ${
-                        (isDatePassed || cancelledAt) 
-                            ? 'opacity-50 cursor-not-allowed' 
-                            : 'hover:bg-slate-100'
-                    }`}
+                    className={`border-slate-300 text-slate-700 ${(isDatePassed || cancelledAt)
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-slate-100'
+                        }`}
                 >
                     Editar
                 </Button>
@@ -474,11 +482,10 @@ export function BookingActionsDialog({
                     onClick={() => setIsCancelDialogOpen(true)}
                     disabled={isDatePassed || !!cancelledAt}
                     title={cancelledAt ? 'Este agendamento já foi cancelado' : isDatePassed ? 'Não é possível cancelar agendamentos passados' : ''}
-                    className={`bg-red-50 text-red-600 border border-red-200 ${
-                        (isDatePassed || cancelledAt) 
-                            ? 'opacity-50 cursor-not-allowed' 
-                            : 'hover:bg-red-100'
-                    }`}
+                    className={`bg-red-50 text-red-600 border border-red-200 ${(isDatePassed || cancelledAt)
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-red-100'
+                        }`}
                 >
                     Cancelar
                 </Button>

@@ -7,67 +7,84 @@ import { prisma } from "@/lib/prisma";
 
 const getAvailableEmployeesSchema = z.object({
     barbershopId: z.string().uuid(),
-    dateTime: z.string().or(z.date()).transform((val) => {
-        if (typeof val === "string") {
-            return new Date(val);
-        }
-        return val;
+    dateTime: z.coerce.date().refine((date) => !Number.isNaN(date.getTime()), {
+        message: "Data e hora inválidas",
     }),
+    durationMinutes: z.number().int().min(1).optional(),
 });
 
-/**
- * Obtém lista de barbeiros disponíveis para uma data/hora específica
- */
+function addMinutes(date: Date, minutes: number) {
+    return new Date(date.getTime() + minutes * 60000);
+}
+
+function intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
+    return startA < endB && startB < endA;
+}
+
 export const getAvailableEmployees = protectedActionClient
     .inputSchema(getAvailableEmployeesSchema)
-    .action(async ({ parsedInput: { barbershopId, dateTime } }) => {
+    .action(async ({ parsedInput: { barbershopId, dateTime, durationMinutes } }) => {
         try {
-            // Buscar todos os employees da barbearia
             const employees = await prisma.user.findMany({
                 where: {
                     barbershopId,
                     role: "EMPLOYEE",
+                },
+                orderBy: {
+                    name: "asc",
                 },
                 select: {
                     id: true,
                     name: true,
                     image: true,
                     email: true,
-                },
-                orderBy: {
-                    name: "asc",
+                    employeeBookings: {
+                        where: {
+                            cancelledAt: null,
+                            date: {
+                                gte: new Date(new Date(dateTime).setHours(0, 0, 0, 0)),
+                                lte: new Date(new Date(dateTime).setHours(23, 59, 59, 999)),
+                            },
+                        },
+                        include: {
+                            service: {
+                                select: {
+                                    durationMinutes: true,
+                                },
+                            },
+                        },
+                    },
                 },
             });
 
-            if (employees.length === 0) {
+            const available = employees.map((employee) => {
+                const isAvailable = durationMinutes
+                    ? employee.employeeBookings.every((booking) => {
+                        const bookingStart = booking.date;
+                        const bookingEnd = addMinutes(
+                            bookingStart,
+                            booking.service.durationMinutes,
+                        );
+                        const desiredEnd = addMinutes(dateTime, durationMinutes);
+
+                        return !intervalsOverlap(
+                            dateTime,
+                            desiredEnd,
+                            bookingStart,
+                            bookingEnd,
+                        );
+                    })
+                    : employee.employeeBookings.every((booking) => booking.date.getTime() !== dateTime.getTime());
+
                 return {
-                    available: [],
-                    unavailable: [],
+                    ...employee,
+                    isAvailable,
                 };
-            }
-
-            // Para cada employee, verificar se tem agendamento naquele horário
-            const employeeAvailability = await Promise.all(
-                employees.map(async (emp) => {
-                    const existingBooking = await prisma.booking.count({
-                        where: {
-                            employeeId: emp.id,
-                            date: dateTime,
-                            cancelledAt: null,
-                        },
-                    });
-
-                    return {
-                        ...emp,
-                        isAvailable: existingBooking === 0,
-                    };
-                })
-            );
-
+            });
 
             return {
-                available: employeeAvailability.filter((e) => e.isAvailable),
-                unavailable: employeeAvailability.filter((e) => !e.isAvailable),
+                available: available.filter((emp) => emp.isAvailable),
+                unavailable: available.filter((emp) => !emp.isAvailable),
             };
         } catch (error) {
             throw new Error(`Erro ao buscar barbeiros disponíveis: ${error instanceof Error ? error.message : String(error)}`);

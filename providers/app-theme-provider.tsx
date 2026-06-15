@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { GlobalEventListener } from "@/components/global-event-listener";
 import { ThemeProvider } from "@/providers/theme-provider";
 
 type AppThemeProviderProps = {
@@ -20,12 +21,15 @@ export function AppThemeProvider({ children }: AppThemeProviderProps) {
   const forcedTheme = isDashboardRoute ? "light" : undefined;
 
   return (
-    <ThemeProvider
-      storageKey={storageKey}
-      defaultTheme={defaultTheme}
-      forcedTheme={forcedTheme}
-    >
-      {children}
-    </ThemeProvider>
+    <>
+      <GlobalEventListener />
+      <ThemeProvider
+        storageKey={storageKey}
+        defaultTheme={defaultTheme}
+        forcedTheme={forcedTheme}
+      >
+        {children}
+      </ThemeProvider>
+    </>
   );
 }

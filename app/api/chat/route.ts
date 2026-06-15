@@ -108,22 +108,25 @@ chat/r
             }),
             getAvailableTimeSlotsForBarbershop: tool({
                 description:
-                    "Obtém os horários disponíveis para uma barbearia específica.",
+                    "Obtém os horários disponíveis para um serviço específico em uma barbearia.",
                 inputSchema: z.object({
                     barbershopId: z.string().uuid(),
+                    serviceId: z.string().uuid(),
                     date: z
                         .string()
                         .describe(
                             "A data no formato ISO (YYYY-MM-DD) para a qual você deseja verificar os horários disponíveis.",
                         ),
                 }),
-                execute: async ({ barbershopId, date }) => {
+                execute: async ({ barbershopId, serviceId, date }) => {
                     const availableTimeSlots = await getDateAvailableTimeSlots({
                         barbershopId,
+                        serviceId,
                         date: new Date(date),
                     });
                     return {
                         barbershopId,
+                        serviceId,
                         date,
                         availableTimeSlots,
                     };

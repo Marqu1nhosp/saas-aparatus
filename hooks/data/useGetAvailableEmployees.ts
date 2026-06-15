@@ -8,26 +8,27 @@ import { queryKeys } from "@/constants/query-keys";
 export const useGetAvailableEmployees = ({
   barbershopId,
   dateTime,
+  durationMinutes,
 }: {
   barbershopId: string;
   dateTime?: Date;
+  durationMinutes?: number;
 }) => {
   return useQuery({
-    queryKey: queryKeys.getAvailableEmployees(barbershopId, dateTime),
+    queryKey: queryKeys.getAvailableEmployees(barbershopId, dateTime, durationMinutes),
     queryFn: async () => {
       try {
         const result = await getAvailableEmployees({
           barbershopId,
           dateTime: dateTime!,
+          durationMinutes,
         });
-        
-        
-        // Se houver erro, retorna arrays vazios
+
         if (!result.data) {
           console.error("Erro ao buscar barbeiros - sem data:", result);
           return { available: [], unavailable: [] };
         }
-        
+
         return result.data;
       } catch (error) {
         console.error("Erro ao chamar getAvailableEmployees:", error);
