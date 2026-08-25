@@ -40,7 +40,10 @@ interface Employee {
 }
 
 interface ActionResult {
-    data?: Employee;
+    data?: Employee | {
+        success: boolean;
+        message: string;
+    };
     validationErrors?: {
         _errors?: string[];
     };
@@ -103,6 +106,11 @@ export function AddEmployeeDialog({ isOpen, onClose, onSuccess }: AddEmployeeDia
 
         hasProcessedResult.current = true;
 
+        if (actionResult.data && 'success' in actionResult.data && actionResult.data.success === false) {
+            toast.error(actionResult.data.message);
+            return;
+        }
+
         // Check for validation errors
         if (actionResult.validationErrors?._errors?.[0]) {
             toast.error(actionResult.validationErrors._errors[0]);
@@ -132,6 +140,9 @@ export function AddEmployeeDialog({ isOpen, onClose, onSuccess }: AddEmployeeDia
             toast.error('Barbearia não identificada');
             return;
         }
+
+        hasProcessedResult.current = false;
+        setActionResult(null);
 
         await executeCreateEmployee({
             name: data.name,

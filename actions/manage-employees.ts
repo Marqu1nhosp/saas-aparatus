@@ -49,7 +49,7 @@ export async function getEmployeesByBarbershop(barbershopId: string) {
         });
 
         return employees;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
         throw new Error("Erro ao carregar funcionários");
     }
@@ -62,6 +62,8 @@ export const createEmployee = actionClient
             parsedInput: { name, email, password, barbershopId },
         }) => {
             try {
+                const normalizedEmail = email.trim().toLowerCase();
+
                 // Get dashboard token from headers
                 const requestHeaders = await headers();
                 const authHeader = requestHeaders.get('authorization') ?? undefined;
@@ -113,13 +115,14 @@ export const createEmployee = actionClient
 
                 // Check if email already exists
                 const existingUser = await prisma.user.findUnique({
-                    where: { email },
+                    where: { email: normalizedEmail },
                 });
 
                 if (existingUser) {
-                    return returnValidationErrors(createEmployeeSchema, {
-                        _errors: ["Email já registrado"],
-                    });
+                    return {
+                        success: false,
+                        message: "Este email já está cadastrado.",
+                    };
                 }
 
                 // Hash password
@@ -128,7 +131,7 @@ export const createEmployee = actionClient
                 const employee = await prisma.user.create({
                     data: {
                         name,
-                        email,
+                        email: normalizedEmail,
                         password: hashedPassword,
                         role: Role.EMPLOYEE,
                         barbershopId,
@@ -156,6 +159,8 @@ export const updateEmployee = actionClient
     .inputSchema(updateEmployeeSchema)
     .action(async ({ parsedInput: { id, name, email, barbershopId } }) => {
         try {
+            const normalizedEmail = email.trim().toLowerCase();
+
             // Get dashboard token from headers
             const requestHeaders = await headers();
             const authHeader = requestHeaders.get('authorization') ?? undefined;
@@ -207,7 +212,7 @@ export const updateEmployee = actionClient
 
             // Check if new email already exists
             const existingEmail = await prisma.user.findUnique({
-                where: { email },
+                where: { email: normalizedEmail },
             });
 
             if (existingEmail && existingEmail.id !== id) {
@@ -220,7 +225,7 @@ export const updateEmployee = actionClient
                 where: { id },
                 data: {
                     name,
-                    email,
+                    email: normalizedEmail,
                 },
                 select: {
                     id: true,

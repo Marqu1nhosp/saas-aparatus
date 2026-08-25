@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Clock, Settings } from 'lucide-react';
+import { AlertCircle, Clock, LockKeyhole, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getBarbershop, updateBarbershop, updateBarbershopCancellationPolicy } from '@/data/dashboard';
 
 import { BusinessHoursForm } from './_components/business-hours-form';
+import { ChangePasswordForm } from './_components/change-password-form';
 
 const settingsSchema = z.object({
     name: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
@@ -150,12 +151,21 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg sm:gap-0">
+                <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-lg bg-slate-100 p-1 sm:gap-0">
                     <TabsTrigger
                         value="general"
                         className="rounded font-medium data-[state=active]:bg-white min-w-0 px-2 py-2 sm:px-3"
                     >
                         <span className="text-xs sm:text-sm truncate">Geral</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="account"
+                        className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded font-medium data-[state=active]:bg-white sm:flex-row sm:gap-2"
+                    >
+                        <LockKeyhole className="h-4 w-4 shrink-0" />
+                        <span className="max-w-full truncate text-[10px] leading-tight text-center sm:text-sm sm:leading-normal">
+                            Conta
+                        </span>
                     </TabsTrigger>
                     <TabsTrigger
                         value="schedules"
@@ -250,6 +260,23 @@ export default function SettingsPage() {
                         </div>
                     </TabsContent>
                 </form>
+
+                <TabsContent value="account" className="mt-6 data-[state=inactive]:hidden">
+                    <Card className="border-slate-200 shadow-sm">
+                        <CardHeader className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100">
+                            <CardTitle className="text-xl">Segurança da conta</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="mb-5">
+                                <p className="text-sm font-medium text-slate-700">Alterar senha</p>
+                                <p className="mt-1 text-sm text-slate-500">
+                                    Atualize sua senha para manter o acesso ao dashboard protegido.
+                                </p>
+                            </div>
+                            <ChangePasswordForm />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
                 <TabsContent value="schedules" className="mt-6 data-[state=inactive]:hidden">
                     {(() => {
