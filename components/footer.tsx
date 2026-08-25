@@ -1,6 +1,6 @@
 export function Footer() {
     return (
-        <footer className="bg-muted p-7">
+        <footer className="bg-muted p-7 pb-28">
             <p className="text-foreground text-xs font-semibold">
                 &copy; {new Date().getFullYear()} Barbershop
             </p>

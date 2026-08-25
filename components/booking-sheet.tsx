@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { createBooking } from "@/actions/create-booking";
 import { BookingSummary } from "@/components/booking-summary";
+import { GoogleIcon } from "@/components/google-icon";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,6 +28,7 @@ import {
 import { Barbershop } from "@/generated/prisma/client";
 import { useGetAvailableEmployees } from "@/hooks/data/useGetAvailableEmployees";
 import { useGetDateAvailableTimeSlots } from "@/hooks/data/useGetDataAvailableTimeSlots";
+import { authClient } from "@/lib/auth-client";
 interface BookingSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,11 +59,12 @@ export function BookingSheet({
     undefined
   );
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const timeScrollRef = useRef<HTMLDivElement>(null);
   const employeesScrollRef = useRef<HTMLDivElement>(null);
   const employeesUnavailableScrollRef = useRef<HTMLDivElement>(null);
+  const { data: session, isPending: isSessionPending } = authClient.useSession();
 
-  // Use refs instead of state for drag tracking to avoid stale closure issues
   const dragStateRef = useRef({
     isDragging: false,
     startX: 0,
@@ -100,10 +103,9 @@ export function BookingSheet({
   };
 
   const canClickButton = () => {
-    return dragStateRef.current.dragDistance < 25; // Threshold of 25px for click
+    return dragStateRef.current.dragDistance < 25;
   };
 
-  // Global drag end listeners
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       if (dragStateRef.current.isDragging) {
@@ -186,6 +188,12 @@ export function BookingSheet({
           (result.error as Error)?.message ??
           "Não foi possível confirmar o agendamento. Tente novamente.";
 
+        if (message.toLowerCase().includes("login")) {
+          setIsReviewDialogOpen(false);
+          setIsLoginDialogOpen(true);
+          return;
+        }
+
         toast.error(message);
       },
     }
@@ -202,11 +210,23 @@ export function BookingSheet({
 
   const handleStartReview = () => {
     if (!selectedDate || !selectedTime) return;
+
+    if (!session?.user) {
+      setIsLoginDialogOpen(true);
+      return;
+    }
+
     setIsReviewDialogOpen(true);
   };
 
   const handleConfirmBooking = async () => {
     if (!selectedDate || !selectedTime) return;
+
+    if (!session?.user) {
+      setIsReviewDialogOpen(false);
+      setIsLoginDialogOpen(true);
+      return;
+    }
 
     const [hours, minutes] = selectedTime.split(":").map(Number);
 
@@ -230,6 +250,18 @@ export function BookingSheet({
     setSelectedDate(undefined);
     setSelectedTime(undefined);
     setSelectedEmployee(undefined);
+  };
+
+  const handleLogin = async () => {
+    const { error } = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: window.location.href,
+      newUserCallbackURL: window.location.href,
+    });
+
+    if (error) {
+      toast.error("Erro ao fazer login: " + error.message);
+    }
   };
 
   return (
@@ -431,10 +463,10 @@ export function BookingSheet({
         {/* Confirm Button */}
         <Button
           onClick={handleStartReview}
-          disabled={!selectedDate || !selectedTime || isCreateBooking}
+          disabled={!selectedDate || !selectedTime || isCreateBooking || isSessionPending}
           className="w-full mt-auto"
         >
-          Revisar agendamento
+          {isSessionPending ? "Verificando login..." : "Revisar agendamento"}
         </Button>
 
         <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
@@ -478,6 +510,34 @@ export function BookingSheet({
                 disabled={isCreateBooking}
               >
                 {isCreateBooking ? "Confirmando..." : "Confirmar agendamento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isLoginDialogOpen} onOpenChange={setIsLoginDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Faça login para agendar</DialogTitle>
+              <DialogDescription>
+                Entre na sua conta para confirmar este horário e acompanhar seu agendamento.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-6">
+              <p className="text-sm text-muted-foreground">
+                Você será redirecionado para a página de agendamentos após o login, onde poderá acompanhar seu horário.
+              </p>
+            </div>
+            <DialogFooter className="gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setIsLoginDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleLogin} className="gap-2">
+                <GoogleIcon />
+                Entrar com Google
               </Button>
             </DialogFooter>
           </DialogContent>

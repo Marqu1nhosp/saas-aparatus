@@ -3,6 +3,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
+import { AppShell } from "@/components/app-shell";
 import { Footer } from "@/components/footer";
 import SonnerToaster from "@/components/sonner-toaster";
 import { AppThemeProvider } from "@/providers/app-theme-provider";
@@ -31,9 +32,7 @@ export default function RootLayout({
       >
         <AppThemeProvider>
           <TanstackQueryProvider>
-            <main className="flex-1">
-              {children}
-            </main>
+            <AppShell>{children}</AppShell>
             <Footer />
             <SonnerToaster />
           </TanstackQueryProvider>

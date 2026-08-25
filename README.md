@@ -37,7 +37,7 @@ A plataforma é acessível via navegador (responsiva para desktop e dispositivos
 A arquitetura segue o padrão **Server-Driven Components** e **Server Actions** do Next.js 16, complementado por:
 
 - **Server Actions**: Mutações de dados e operações sensíveis executadas no servidor (arquivos `actions/`)
-- **API Routes**: Endpoints HTTP para integrações externas (Stripe webhooks, chat com IA)
+- **API Routes**: Endpoints HTTP para integrações externas (chat com IA)
 - **React Query (TanStack Query)**: Gerenciamento de estado assíncrono no cliente
 - **Autenticação Stateless**: JWT tokens via Better-Auth para autorização sem sessões tradicionais
 
@@ -79,7 +79,7 @@ A arquitetura segue o padrão **Server-Driven Components** e **Server Actions** 
 - **Better-Auth 1.4.6**: Sistema de autenticação moderno com suporte a JWT e credenciais
 - **next-safe-action 8.0.11**: Wrapper para Server Actions com validação Zod integrada
 - **bcrypt 6.0.0**: Hash criptográfico de senhas com salt
-- **Stripe 18.4.0**: Processamento de pagamentos e gerenciamento de transações
+- **Pagamentos offline/externos**: Integrações de pagamento podem ser adicionadas conforme necessário
 
 ### Frontend
 
@@ -157,7 +157,7 @@ A arquitetura segue o padrão **Server-Driven Components** e **Server Actions** 
 1. **Validação de Horários**: Clientes só conseguem agendar dentro dos horários configurados; horários de almoço são respeitados automaticamente
 2. **Prevenção de Overbooking**: Cada horário pode ter apenas um agendamento por serviço
 3. **Bloqueio de Agendamentos Passados**: Impossível agendar para data/hora no passado
-4. **Processamento de Pagamento**: Agendamentos confirmados apenas após sucesso no Stripe
+4. **Processamento de Agendamento**: Agendamentos são criados após validação de disponibilidade e dados do cliente
 5. **Controle de Acesso Baseado em Função**: ADMIN vs EMPLOYEE com permissões diferenciadas
 6. **Isolamento de Dados**: Usuários só veem dados da barbearia associada
 
@@ -165,7 +165,7 @@ A arquitetura segue o padrão **Server-Driven Components** e **Server Actions** 
 
 - **Integração com IA**: Chat assistente powered by Google Gemini/OpenAI para melhor experiência do cliente
 - **Suporte a Intervalos de Almoço**: Configuração granular de disponibilidade incluindo pausas durante o dia
-- **Pagamento Online Integrado**: Processamento seguro via Stripe sem necessidade de terceiros
+- **Pagamento Online Integrado**: Integração de pagamento pode ser adicionada conforme necessário
 - **Responsividade Completa**: Interface otimizada para mobile, tablet e desktop
 - **Validação em Tempo Real**: Horários indisponíveis são refletidos instantaneamente na UI
 
@@ -176,7 +176,9 @@ A arquitetura segue o padrão **Server-Driven Components** e **Server Actions** 
 ### Principais Entidades
 
 #### Barbershop
+
 Representa um estabelecimento de barbearia.
+
 - `id`: Identificador único (UUID)
 - `name`: Nome do estabelecimento
 - `address`: Localização
@@ -185,7 +187,9 @@ Representa um estabelecimento de barbearia.
 - `phones`: Array de contatos telefônicos
 
 #### BarbershopService
+
 Serviços oferecidos por uma barbearia.
+
 - `id`: Identificador único (UUID)
 - `name`: Nome do serviço (ex: "Corte de Cabelo")
 - `description`: Descrição detalhada
@@ -194,7 +198,9 @@ Serviços oferecidos por uma barbearia.
 - `barbershopId`: Referência a Barbershop
 
 #### User
+
 Usuários da plataforma (clientes e funcionários).
+
 - `id`: Identificador único (UUID)
 - `name`: Nome completo
 - `email`: Email único para autenticação
@@ -205,7 +211,9 @@ Usuários da plataforma (clientes e funcionários).
 - `image`: Avatar do usuário
 
 #### Booking
+
 Agendamentos realizados.
+
 - `id`: Identificador único (UUID)
 - `userId`: Cliente que fez a reserva
 - `barbershopId`: Barbearia onde será atendido
@@ -216,7 +224,9 @@ Agendamentos realizados.
 - `createdAt`, `updatedAt`: Metadados de auditoria
 
 #### BusinessHours
+
 Horários de funcionamento configuráveis.
+
 - `id`: Identificador único (UUID)
 - `barbershopId`: Barbearia associada
 - `dayOfWeek`: 0-6 (Sunday-Saturday)
@@ -227,6 +237,7 @@ Horários de funcionamento configuráveis.
 - Constraint unico: `[barbershopId, dayOfWeek]` garante uma entrada por dia/barbearia
 
 #### Session, Account, Verification
+
 Tabelas suplementares gerenciadas por Better-Auth para sessões e autenticação social.
 
 ### Relacionamentos
@@ -271,7 +282,7 @@ BarbershopService ──→ Barbershop
    - Token armazenado em cookie HTTP-only para segurança
    - Refresh token permite renovação sem re-autenticação
 
-3. **Autenticação em Operações**: 
+3. **Autenticação em Operações**:
    - `protectedActionClient` do `next-safe-action` verifica JWT em cada Server Action
    - Contexto do usuário (`ctx.user`) disponível em toda a aplicação
 
@@ -306,13 +317,12 @@ BarbershopService ──→ Barbershop
      - Não está em intervalo de almoço
      - Horário não é no passado
 
-4. **Processamento de Pagamento**:
-   - `createBookingCheckoutSession` cria sessão Stripe
-   - Cliente redirecionado para checkout Stripe
-   - Stripe webhook (`POST /api/stripe/webhook`) processa confirmação de pagamento
+4. **Processamento de Agendamento**:
+   - `createBooking` action valida disponibilidade e cria o agendamento
+   - Cliente recebe confirmação de agendamento
 
 5. **Finalização**:
-   - Booking criado no banco com `stripeChargeId` para reconciliação
+   - Booking criado no banco com os dados de serviço, horário e cliente
    - Cliente recebe confirmação de agendamento
 
 ---
@@ -321,7 +331,7 @@ BarbershopService ──→ Barbershop
 
 ### Controle de Acesso
 
-1. **Autenticação Obrigatória**: 
+1. **Autenticação Obrigatória**:
    - `protectedActionClient` rejeita requisições não autenticadas
    - Middleware valida tokens JWT em todas as rotas `/dashboard`
 
@@ -347,8 +357,11 @@ BarbershopService ──→ Barbershop
 3. **Exemplos**:
    ```typescript
    const inputSchema = z.object({
-       serviceId: z.string().uuid(),
-       date: z.string().or(z.date()).transform((val) => new Date(val)),
+     serviceId: z.string().uuid(),
+     date: z
+       .string()
+       .or(z.date())
+       .transform((val) => new Date(val)),
    });
    ```
 
@@ -377,12 +390,14 @@ BarbershopService ──→ Barbershop
 ### Instalação
 
 1. **Clonar Repositório**:
+
    ```bash
    git clone <repository-url>
    cd Barbershop
    ```
 
 2. **Instalar Dependências**:
+
    ```bash
    npm install
    ```
@@ -405,8 +420,7 @@ BETTER_AUTH_SECRET=seu_secret_aleatorio_de_32_caracteres
 BETTER_AUTH_URL=http://localhost:3000
 
 # Stripe
-STRIPE_SECRET_KEY=sk_test_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+# Stripe não está mais em uso nesta aplicação
 
 # AI (escolher um ou ambos)
 GOOGLE_GENERATIVE_AI_API_KEY=seu_gemini_api_key
@@ -420,9 +434,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ### Migração do Banco
 
 1. **Criar e Aplicar Migrações**:
+
    ```bash
    npx prisma migrate dev --name init
    ```
+
    Isso cria tabelas baseadas no schema.prisma
 
 2. **Usar Migrate Reset (apenas desenvolvimento)**:
@@ -434,9 +450,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ### Seed (Dados Iniciais)
 
 1. **Executar Script de Seed**:
+
    ```bash
    npx prisma db seed
    ```
+
    Popula banco com barbershops, serviços e usuários de teste
 
 2. **Credenciais de Teste**:

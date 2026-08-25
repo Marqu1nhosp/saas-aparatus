@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { protectedActionClient } from "@/lib/action-client";
+import { actionClient } from "@/lib/action-client";
 import { prisma } from "@/lib/prisma";
 
 const getAvailableEmployeesSchema = z.object({
@@ -21,7 +21,7 @@ function intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
     return startA < endB && startB < endA;
 }
 
-export const getAvailableEmployees = protectedActionClient
+export const getAvailableEmployees = actionClient
     .inputSchema(getAvailableEmployeesSchema)
     .action(async ({ parsedInput: { barbershopId, dateTime, durationMinutes } }) => {
         try {

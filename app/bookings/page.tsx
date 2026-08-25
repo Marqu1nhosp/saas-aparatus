@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { BookingsList } from "@/app/bookings/_components/bookings-list";
+import { LoginToBook } from "@/app/bookings/_components/login-to-book";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,8 +11,12 @@ import {
   PageSectionTitle,
 } from "@/components/ui/page";
 import { getUserBookings } from "@/data/bookings";
+import { auth } from "@/lib/auth";
 
 export default async function BookingsPage() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   const bookings = await getUserBookings();
 
   const now = new Date();
@@ -29,14 +35,18 @@ export default async function BookingsPage() {
         {bookings.length === 0 ? (
           <PageSectionContent>
             <PageSectionTitle>Meus Agendamentos</PageSectionTitle>
-            <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
-              <p className="text-muted-foreground mb-4">
-                Você ainda não tem nenhum agendamento.
-              </p>
-              <Button asChild variant="default">
-                <Link href="/">Agendar agora</Link>
-              </Button>
-            </div>
+            {session?.user ? (
+              <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
+                <p className="mb-4 text-muted-foreground">
+                  Você ainda não tem nenhum agendamento.
+                </p>
+                <Button asChild variant="default">
+                  <Link href="/">Agendar agora</Link>
+                </Button>
+              </div>
+            ) : (
+              <LoginToBook />
+            )}
           </PageSectionContent>
         ) : (
           <>
