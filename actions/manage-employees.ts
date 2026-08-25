@@ -61,73 +61,72 @@ export const createEmployee = actionClient
         async ({
             parsedInput: { name, email, password, barbershopId },
         }) => {
-            try {
-                const normalizedEmail = email.trim().toLowerCase();
+            const normalizedEmail = email.trim().toLowerCase();
 
-                // Get dashboard token from headers
-                const requestHeaders = await headers();
-                const authHeader = requestHeaders.get('authorization') ?? undefined;
-                const cookieHeader = requestHeaders.get('cookie') ?? undefined;
+            // Get dashboard token from headers
+            const requestHeaders = await headers();
+            const authHeader = requestHeaders.get('authorization') ?? undefined;
+            const cookieHeader = requestHeaders.get('cookie') ?? undefined;
 
-                const token = extractDashboardToken(authHeader, cookieHeader);
+            const token = extractDashboardToken(authHeader, cookieHeader);
 
-                if (!token) {
-                    return returnValidationErrors(createEmployeeSchema, {
-                        _errors: ["Você precisa estar logado no dashboard para adicionar funcionários"],
-                    });
-                }
+            if (!token) {
+                return returnValidationErrors(createEmployeeSchema, {
+                    _errors: ["Você precisa estar logado no dashboard para adicionar funcionários"],
+                });
+            }
 
-                const userPayload = parseDashboardToken(token);
+            const userPayload = parseDashboardToken(token);
 
-                if (!userPayload) {
-                    return returnValidationErrors(createEmployeeSchema, {
-                        _errors: ["Token inválido ou expirado. Faça login novamente"],
-                    });
-                }
+            if (!userPayload) {
+                return returnValidationErrors(createEmployeeSchema, {
+                    _errors: ["Token inválido ou expirado. Faça login novamente"],
+                });
+            }
 
-                // Check if user is admin of the barbershop
-                let adminUser = await prisma.user.findUnique({
+            // Check if user is admin of the barbershop
+            let adminUser = await prisma.user.findUnique({
+                where: { id: userPayload.id },
+            });
+
+            if (!adminUser) {
+                return returnValidationErrors(createEmployeeSchema, {
+                    _errors: ["Usuário não encontrado"],
+                });
+            }
+
+            // If user is CLIENT of this barbershop, promote to ADMIN
+            if (adminUser.role === Role.CLIENT && adminUser.barbershopId === barbershopId) {
+                adminUser = await prisma.user.update({
                     where: { id: userPayload.id },
+                    data: { role: Role.ADMIN },
                 });
+            }
 
-                if (!adminUser) {
-                    return returnValidationErrors(createEmployeeSchema, {
-                        _errors: ["Usuário não encontrado"],
-                    });
-                }
-
-                // If user is CLIENT of this barbershop, promote to ADMIN
-                if (adminUser.role === Role.CLIENT && adminUser.barbershopId === barbershopId) {
-                    adminUser = await prisma.user.update({
-                        where: { id: userPayload.id },
-                        data: { role: Role.ADMIN },
-                    });
-                }
-
-                // Verify user is now ADMIN of the barbershop
-                if (adminUser.role !== Role.ADMIN || adminUser.barbershopId !== barbershopId) {
-                    return returnValidationErrors(createEmployeeSchema, {
-                        _errors: [
-                            "Você não tem permissão para adicionar funcionários nesta barbearia",
-                        ],
-                    });
-                }
-
-                // Check if email already exists
-                const existingUser = await prisma.user.findUnique({
-                    where: { email: normalizedEmail },
+            // Verify user is now ADMIN of the barbershop
+            if (adminUser.role !== Role.ADMIN || adminUser.barbershopId !== barbershopId) {
+                return returnValidationErrors(createEmployeeSchema, {
+                    _errors: [
+                        "Você não tem permissão para adicionar funcionários nesta barbearia",
+                    ],
                 });
+            }
 
-                if (existingUser) {
-                    return {
-                        success: false,
-                        message: "Este email já está cadastrado.",
-                    };
-                }
+            // Check if email already exists
+            const existingUser = await prisma.user.findUnique({
+                where: { email: normalizedEmail },
+            });
 
-                // Hash password
-                const hashedPassword = await hash(password, 10);
+            if (existingUser) {
+                return returnValidationErrors(createEmployeeSchema, {
+                    _errors: ["Este email já está cadastrado."],
+                });
+            }
 
+            // Hash password
+            const hashedPassword = await hash(password, 10);
+
+            try {
                 const employee = await prisma.user.create({
                     data: {
                         name,
@@ -147,9 +146,20 @@ export const createEmployee = actionClient
 
                 return employee;
             } catch (error) {
+                if (
+                    typeof error === "object" &&
+                    error !== null &&
+                    "code" in error &&
+                    error.code === "P2002"
+                ) {
+                    return returnValidationErrors(createEmployeeSchema, {
+                        _errors: ["Este email já está cadastrado."],
+                    });
+                }
+
                 const errorMessage = error instanceof Error ? error.message : String(error);
                 return returnValidationErrors(createEmployeeSchema, {
-                    _errors: [errorMessage || "Erro desconhecido ao criar funcionário"],
+                    _errors: [errorMessage || "Erro ao criar funcionário"],
                 });
             }
         }

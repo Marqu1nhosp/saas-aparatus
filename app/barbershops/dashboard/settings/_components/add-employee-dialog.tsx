@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAction } from 'next-safe-action/hooks';
-import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -31,22 +30,17 @@ const addEmployeeSchema = z.object({
 
 type AddEmployeeFormData = z.infer<typeof addEmployeeSchema>;
 
-interface Employee {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    createdAt: Date;
-}
-
-interface ActionResult {
-    data?: Employee | {
-        success: boolean;
-        message: string;
+function getActionErrorMessage(result: {
+    error?: {
+        validationErrors?: { _errors?: string[] };
+        serverError?: string;
     };
-    validationErrors?: {
-        _errors?: string[];
-    };
+}) {
+    return (
+        result.error?.validationErrors?._errors?.[0] ??
+        result.error?.serverError ??
+        'Erro ao adicionar funcionário'
+    );
 }
 
 interface AddEmployeeDialogProps {
@@ -57,8 +51,6 @@ interface AddEmployeeDialogProps {
 
 export function AddEmployeeDialog({ isOpen, onClose, onSuccess }: AddEmployeeDialogProps) {
     const barbershopId = typeof window !== 'undefined' ? localStorage.getItem('barbershopId') : null;
-    const [actionResult, setActionResult] = useState<ActionResult | null>(null);
-    const hasProcessedResult = useRef(false);
 
     const {
         register,
@@ -76,73 +68,22 @@ export function AddEmployeeDialog({ isOpen, onClose, onSuccess }: AddEmployeeDia
     });
 
     const { execute: executeCreateEmployee, isPending } = useAction(createEmployee, {
-        onSuccess: (result) => {
-            setActionResult(result);
-        },
-        onError: (result) => {
-
-            let message = '';
-
-            // Verificar se tem validationErrors
-            if (result.error?.validationErrors) {
-                if (result.error.validationErrors._errors?.[0]) {
-                    message = result.error.validationErrors._errors[0];
-                } else {
-                    // Se tem validationErrors mas não tem _errors, log dos detalhes
-                    message = 'Erro de validação: ' + JSON.stringify(result.error.validationErrors);
-                }
-            } else if (result.error?.serverError) {
-                message = result.error.serverError;
-            } else {
-                message = 'Erro ao adicionar funcionário (detalhes não disponíveis)';
-            }
-
-            toast.error(message);
-        },
-    });
-
-    useEffect(() => {
-        if (!actionResult || hasProcessedResult.current) return;
-
-        hasProcessedResult.current = true;
-
-        if (actionResult.data && 'success' in actionResult.data && actionResult.data.success === false) {
-            toast.error(actionResult.data.message);
-            return;
-        }
-
-        // Check for validation errors
-        if (actionResult.validationErrors?._errors?.[0]) {
-            toast.error(actionResult.validationErrors._errors[0]);
-            return;
-        }
-
-        // Check for successful response
-        if (actionResult.data) {
+        onSuccess: () => {
             toast.success('Funcionário adicionado com sucesso!');
             reset();
             onSuccess();
             onClose();
-        } else {
-            // Se não tem data e não tem validationErrors, é erro desconhecido
-            toast.error('Erro ao adicionar funcionário: resposta inválida do servidor');
-        }
-    }, [actionResult, reset, onSuccess, onClose]);
-
-    useEffect(() => {
-        if (isOpen) {
-            hasProcessedResult.current = false;
-        }
-    }, [isOpen]);
+        },
+        onError: (result) => {
+            toast.error(getActionErrorMessage(result));
+        },
+    });
 
     const onSubmit = async (data: AddEmployeeFormData) => {
         if (!barbershopId) {
             toast.error('Barbearia não identificada');
             return;
         }
-
-        hasProcessedResult.current = false;
-        setActionResult(null);
 
         await executeCreateEmployee({
             name: data.name,
