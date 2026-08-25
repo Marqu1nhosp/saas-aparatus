@@ -20,12 +20,12 @@ const BarbershopPage = async ({ params }: PageProps<"/barbershops/[id]">) => {
     return (
         <div>
             {/* Banner Header */}
-            <div className="relative h-74.25 w-full">
+            <div className="relative aspect-[300/163] w-full">
                 <Image
                     src={barbershop.imageUrl}
                     alt={barbershop.name}
                     fill
-                    className="object-cover"
+                    className="bg-muted object-contain"
                 />
                 <BackButton />
             </div>

@@ -59,58 +59,23 @@ async function seedDatabase() {
         console.log("   Funcionário 2: barbeiro2@barbearia.com / employee123");
 
         const images = [
-            "https://utfs.io/f/c97a2dc9-cf62-468b-a851-bfd2bdde775f-16p.png",
-            "https://utfs.io/f/45331760-899c-4b4b-910e-e00babb6ed81-16q.png",
-            "https://utfs.io/f/5832df58-cfd7-4b3f-b102-42b7e150ced2-16r.png",
-            "https://utfs.io/f/7e309eaa-d722-465b-b8b6-76217404a3d3-16s.png",
-            "https://utfs.io/f/178da6b6-6f9a-424a-be9d-a2feb476eb36-16t.png",
-            "https://utfs.io/f/2f9278ba-3975-4026-af46-64af78864494-16u.png",
-            "https://utfs.io/f/988646ea-dcb6-4f47-8a03-8d4586b7bc21-16v.png",
-            "https://utfs.io/f/60f24f5c-9ed3-40ba-8c92-0cd1dcd043f9-16w.png",
-            "https://utfs.io/f/f64f1bd4-59ce-4ee3-972d-2399937eeafc-16x.png",
-            "https://utfs.io/f/e995db6d-df96-4658-99f5-11132fd931e1-17j.png",
-            "https://utfs.io/f/3bcf33fc-988a-462b-8b98-b811ee2bbd71-17k.png",
-            "https://utfs.io/f/5788be0e-2307-4bb4-b603-d9dd237950a2-17l.png",
-            "https://utfs.io/f/6b0888f8-b69f-4be7-a13b-52d1c0c9cab2-17m.png",
-            "https://utfs.io/f/ef45effa-415e-416d-8c4a-3221923cd10f-17n.png",
-            "https://utfs.io/f/ef45effa-415e-416d-8c4a-3221923cd10f-17n.png",
-            "https://utfs.io/f/a55f0f39-31a0-4819-8796-538d68cc2a0f-17o.png",
-            "https://utfs.io/f/5c89f046-80cd-4443-89df-211de62b7c2a-17p.png",
-            "https://utfs.io/f/23d9c4f7-8bdb-40e1-99a5-f42271b7404a-17q.png",
-            "https://utfs.io/f/9f0847c2-d0b8-4738-a673-34ac2b9506ec-17r.png",
-            "https://utfs.io/f/07842cfb-7b30-4fdc-accc-719618dfa1f2-17s.png",
-            "https://utfs.io/f/0522fdaf-0357-4213-8f52-1d83c3dcb6cd-18e.png",
+            "/images/barbershops/salao-modelo-mauricio.png",
+            "/images/barbershops/barbearia-vila-serrana.png",
+            "/images/barbershops/barbearia-urbis-v.png",
         ];
         // Nomes criativos para as barbearias
         const creativeNames = [
             "Salão modelo - Mauricio",
-            "Corte e Estilo Barbearia",
-            "Barbearia Executive",
-            "Brooklin Barbearia",
-            "NP Barbearia",
-            "Studio D Barber Shop",
-            "Barbearia Novo Visual",
-            "Men's Club Barbearia",
-            "Império Black Barbearia",
-            "Los Manos Barbearia",
-            "Barbearia Mulungu",
-            "Barbearia Conquista Style",
+            "Barbearia Vila Serrana",
+            "Barbearia Urbis V"
         ];
 
 
         const addresses = [
             "Av. da Urbis V",
-            "Av Frei Benjamim, 1722 - Brasil",
-            "Av. Frei Benjamim, 2789 - Brasil",
-            "Via Local H, 7 - Zabelê",
-            "Rua Coronel Maneca Santos, 127 - Lagoa das Flores",
-            "Av. Lapa, 2183 - Brasil",
-            "Rua Manoel Beckman, 70 - Boa Vista",
-            "Rua Pedro Bittencourt Ferraz, 305 - Felícia",
-            "Av. Frei Benjamim, 1722 - Brasil",
-            "Av. Frei Benjamim, 1840 - Brasil",
-            "Av. Macaúbas, 2547 - Brasil",
-            "Av. Olívia Flores, 900 - Candeias",
+            "Vila serrana 1, Avenida Fernando Spínola, 123",
+            "Avenida central da Urbis V, 123",
+
         ];
 
         const services = [
@@ -121,7 +86,7 @@ async function seedDatabase() {
                 durationMinutes: 60,
                 status: "ACTIVE",
                 imageUrl:
-                    "https://utfs.io/f/0ddfbd26-a424-43a0-aaf3-c3f1dc6be6d1-1kgxo7.png",
+                    "/images/services/corte-de-cabelo.png",
             },
             {
                 name: "Barba",
@@ -130,7 +95,7 @@ async function seedDatabase() {
                 durationMinutes: 20,
                 status: "ACTIVE",
                 imageUrl:
-                    "https://utfs.io/f/e6bdffb6-24a9-455b-aba3-903c2c2b5bde-1jo6tu.png",
+                    "/images/services/barba.png",
             },
             {
                 name: "Pézinho",
@@ -139,7 +104,7 @@ async function seedDatabase() {
                 durationMinutes: 30,
                 status: "ACTIVE",
                 imageUrl:
-                    "https://utfs.io/f/8a457cda-f768-411d-a737-cdb23ca6b9b5-b3pegf.png",
+                    "/images/services/pezinho.png",
             },
             {
                 name: "Sobrancelha",
@@ -148,7 +113,7 @@ async function seedDatabase() {
                 durationMinutes: 15,
                 status: "ACTIVE",
                 imageUrl:
-                    "https://utfs.io/f/2118f76e-89e4-43e6-87c9-8f157500c333-b0ps0b.png",
+                    "/images/services/sombrancelha.png",
             },
             {
                 name: "Massagem",
@@ -157,22 +122,13 @@ async function seedDatabase() {
                 durationMinutes: 45,
                 status: "ACTIVE",
                 imageUrl:
-                    "https://utfs.io/f/c4919193-a675-4c47-9f21-ebd86d1c8e6a-4oen2a.png",
-            },
-            {
-                name: "Hidratação",
-                description: "Hidratação profunda para cabelo e barba.",
-                price: 25.0,
-                durationMinutes: 25,
-                status: "ACTIVE",
-                imageUrl:
-                    "https://utfs.io/f/8a457cda-f768-411d-a737-cdb23ca6b9b5-b3pegf.png",
+                    "/images/services/massagem.png",
             },
         ];
 
-        // Criar 10 barbearias com nomes e endereços fictícios
+        // Criar as três barbearias configuradas
         const barbershops = [];
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < creativeNames.length; i++) {
             const name = creativeNames[i];
             const address = addresses[i];
             const imageUrl = images[i];
@@ -213,27 +169,51 @@ async function seedDatabase() {
             }
 
             if (i === 1) {
-                const corteestiloPassword = await bcrypt.hash("corteestilo123", 10);
+                const vilaSerranaPassword = await bcrypt.hash("vilaserrana123", 10);
                 await prisma.user.upsert({
-                    where: { email: "owner@corteestilo.com" },
+                    where: { email: "owner@vilaserrana.com" },
                     update: {
-                        password: corteestiloPassword,
+                        password: vilaSerranaPassword,
                         role: "ADMIN",
                         barbershopId: barbershop.id,
                     },
                     create: {
-                        id: "corteestilo-owner-1",
-                        name: "Dono Barbearia Corte & Estilo",
-                        email: "owner@corteestilo.com",
-                        password: corteestiloPassword,
+                        id: "vila-serrana-owner-1",
+                        name: "Dono Barbearia Vila Serrana",
+                        email: "owner@vilaserrana.com",
+                        password: vilaSerranaPassword,
                         role: "ADMIN",
                         barbershopId: barbershop.id,
                     },
                 });
 
-                console.log("Usuário corte estilo criado:");
-                console.log("Email: owner@corteestilo.com");
-                console.log("Senha: corteestilo123");
+                console.log("Usuário Vila Serrana criado:");
+                console.log("Email: owner@vilaserrana.com");
+                console.log("Senha: vilaserrana123");
+            }
+
+            if (i === 2) {
+                const urbisPassword = await bcrypt.hash("urbisv123", 10);
+                await prisma.user.upsert({
+                    where: { email: "owner@urbisv.com" },
+                    update: {
+                        password: urbisPassword,
+                        role: "ADMIN",
+                        barbershopId: barbershop.id,
+                    },
+                    create: {
+                        id: "urbis-v-owner-1",
+                        name: "Dono Barbearia Urbis V",
+                        email: "owner@urbisv.com",
+                        password: urbisPassword,
+                        role: "ADMIN",
+                        barbershopId: barbershop.id,
+                    },
+                });
+
+                console.log("Usuário Urbis V criado:");
+                console.log("Email: owner@urbisv.com");
+                console.log("Senha: urbisv123");
             }
 
             for (const service of services) {
