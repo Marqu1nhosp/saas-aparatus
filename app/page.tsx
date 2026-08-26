@@ -11,9 +11,11 @@ import banner from "@/public/banner.png";
 
 
 export default async function Home() {
-  const barbershops = await getBarberShops();
-  const popularBarbershops = await getPopularBarbershops();
-  const bookings = await getUserBookings();
+  const [barbershops, popularBarbershops, bookings] = await Promise.all([
+    getBarberShops(),
+    getPopularBarbershops(),
+    getUserBookings(),
+  ]);
 
   const now = new Date();
   const confirmedBookings = bookings.filter(
