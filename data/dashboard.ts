@@ -112,42 +112,52 @@ export async function getDashboardMetrics(barbershopId: string): Promise<Dashboa
         23, 59, 59, 999
     ));
 
-    //  Agendamentos do dia
-    const bookingsToday = await prisma.booking.count({
-        where: {
-            barbershopId,
-            cancelledAt: null,
-            date: {
-                gte: startOfToday,
-                lte: endOfToday,
+    const [
+        bookingsToday,
+        bookingsMonth,
+        bookingsTodayWithServices,
+        bookingsMonthWithServices,
+        clientsAttended,
+    ] = await Promise.all([
+        prisma.booking.count({
+            where: {
+                barbershopId,
+                cancelledAt: null,
+                date: { gte: startOfToday, lte: endOfToday },
             },
-        },
-    });
-
-    //  Agendamentos do mês
-    const bookingsMonth = await prisma.booking.count({
-        where: {
-            barbershopId,
-            cancelledAt: null,
-            date: {
-                gte: startOfCurrentMonth,
-                lte: endOfCurrentMonth,
+        }),
+        prisma.booking.count({
+            where: {
+                barbershopId,
+                cancelledAt: null,
+                date: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
             },
-        },
-    });
-
-    //  Faturamento do dia
-    const bookingsTodayWithServices = await prisma.booking.findMany({
-        where: {
-            barbershopId,
-            cancelledAt: null,
-            date: {
-                gte: startOfToday,
-                lte: endOfToday,
+        }),
+        prisma.booking.findMany({
+            where: {
+                barbershopId,
+                cancelledAt: null,
+                date: { gte: startOfToday, lte: endOfToday },
             },
-        },
-        include: { service: true },
-    });
+            select: { service: { select: { priceInCents: true } } },
+        }),
+        prisma.booking.findMany({
+            where: {
+                barbershopId,
+                cancelledAt: null,
+                date: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+            },
+            select: { service: { select: { priceInCents: true } } },
+        }),
+        prisma.booking.groupBy({
+            by: ['userId'],
+            where: {
+                barbershopId,
+                cancelledAt: null,
+                date: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+            },
+        }),
+    ]);
 
     const revenueToday =
         bookingsTodayWithServices.reduce(
@@ -155,37 +165,11 @@ export async function getDashboardMetrics(barbershopId: string): Promise<Dashboa
             0
         ) / 100;
 
-    //  Faturamento do mês
-    const bookingsMonthWithServices = await prisma.booking.findMany({
-        where: {
-            barbershopId,
-            cancelledAt: null,
-            date: {
-                gte: startOfCurrentMonth,
-                lte: endOfCurrentMonth,
-            },
-        },
-        include: { service: true },
-    });
-
     const revenueMonth =
         bookingsMonthWithServices.reduce(
             (sum, booking) => sum + (booking.service?.priceInCents ?? 0),
             0
         ) / 100;
-
-    //  Clientes únicos do mês
-    const clientsAttended = await prisma.booking.groupBy({
-        by: ['userId'],
-        where: {
-            barbershopId,
-            cancelledAt: null,
-            date: {
-                gte: startOfCurrentMonth,
-                lte: endOfCurrentMonth,
-            },
-        },
-    });
 
     return {
         bookingsToday,

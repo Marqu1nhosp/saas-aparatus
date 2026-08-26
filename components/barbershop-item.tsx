@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Barbershop } from "@/generated/prisma/client";
 
 interface BarbershopItemProps {
-    barbershop: Barbershop;
+    barbershop: Pick<Barbershop, "id" | "name" | "address" | "imageUrl">;
 }
 
 const BarbershopItem = ({ barbershop }: BarbershopItemProps) => {
@@ -19,6 +19,7 @@ const BarbershopItem = ({ barbershop }: BarbershopItemProps) => {
                 alt={barbershop.name}
                 fill
                 className="rounded-xl bg-muted object-contain"
+                sizes="(max-width: 768px) 290px, 320px"
             />
             <div className="absolute right-0 bottom-0 left-0 z-20 p-4">
                 <h3 className="text-background text-lg font-bold dark:text-white">{barbershop.name}</h3>
