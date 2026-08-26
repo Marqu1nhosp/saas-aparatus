@@ -2,7 +2,7 @@
 
 import { Bell, LogOut, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { clearDashboardSession, useDashboardSession } from '@/lib/use-dashboard-session';
 
@@ -17,6 +17,7 @@ export function DashboardHeader({ userName, barbershopName, role }: DashboardHea
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [newBookingCount, setNewBookingCount] = useState(0);
     const [recentBookings, setRecentBookings] = useState<Array<{ id: string; clientName: string; serviceName: string; date: string }>>([]);
+    const notificationsRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const { user: dashboardUser } = useDashboardSession();
 
@@ -162,6 +163,30 @@ export function DashboardHeader({ userName, barbershopName, role }: DashboardHea
         }
     }, [isNotificationsOpen]);
 
+    const handleNotificationsToggle = () => {
+        const willOpen = !isNotificationsOpen;
+
+        if (willOpen) {
+            localStorage.setItem('lastViewedBookingsTime', Date.now().toString());
+            setNewBookingCount(0);
+        }
+
+        setIsNotificationsOpen(willOpen);
+    };
+
+    useEffect(() => {
+        if (!isNotificationsOpen) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!notificationsRef.current?.contains(event.target as Node)) {
+                setIsNotificationsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isNotificationsOpen]);
+
     const handleLogout = async () => {
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
         localStorage.removeItem('token');
@@ -197,9 +222,9 @@ export function DashboardHeader({ userName, barbershopName, role }: DashboardHea
 
                 {/* Right - User Menu */}
                 <div className="flex items-center gap-3">
-                    <div className="relative">
+                    <div ref={notificationsRef} className="relative">
                         <button
-                            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                            onClick={handleNotificationsToggle}
                             title={newBookingCount > 0 ? `${newBookingCount} novo(s) agendamento(s)` : 'Agendamentos'}
                             className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
                         >

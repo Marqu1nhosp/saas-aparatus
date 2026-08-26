@@ -3,7 +3,7 @@
 import { BarChart3, Bell, Calendar, DollarSign, LogOut, Menu, Scissors, Settings, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { DashboardHeader } from '@/app/barbershops/dashboard/_components/dashboard-header';
 import { DashboardSessionSync } from '@/app/barbershops/dashboard/_components/dashboard-session-sync';
@@ -51,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [newBookingCount, setNewBookingCount] = useState(0);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [recentBookings, setRecentBookings] = useState<Array<{ id: string; clientName: string; serviceName: string; date: string }>>([]);
+    const notificationsRef = useRef<HTMLDivElement>(null);
     const { user } = useDashboardSession();
     const router = useRouter();
 
@@ -101,6 +102,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         loadRecentBookings();
     }, [isNotificationsOpen, user?.barbershopId]);
 
+    const handleNotificationsToggle = () => {
+        const willOpen = !isNotificationsOpen;
+
+        if (willOpen) {
+            localStorage.setItem('lastViewedBookingsTime', Date.now().toString());
+            setNewBookingCount(0);
+        }
+
+        setIsNotificationsOpen(willOpen);
+    };
+
+    useEffect(() => {
+        if (!isNotificationsOpen) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!notificationsRef.current?.contains(event.target as Node)) {
+                setIsNotificationsOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isNotificationsOpen]);
+
     const handleLogout = () => {
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
         localStorage.removeItem('token');
@@ -135,7 +160,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     headers.Authorization = `Bearer ${authToken}`;
                 }
 
-                const response = await fetch('/api/dashboard/new-bookings', {
+                const lastViewedTime = localStorage.getItem('lastViewedBookingsTime');
+                const params = new URLSearchParams();
+                if (lastViewedTime) {
+                    params.append('lastViewed', lastViewedTime);
+                }
+
+                const response = await fetch(`/api/dashboard/new-bookings?${params}`, {
                     cache: 'no-store',
                     credentials: 'include',
                     headers,
@@ -279,9 +310,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex items-center justify-between h-16 px-4">
                         <h1 className="text-lg font-semibold text-slate-900 truncate flex-1">{barbershopName || 'Barbearia'}</h1>
                         <div className="flex items-center gap-3">
-                            <div className="relative">
+                            <div ref={notificationsRef} className="relative">
                                 <button
-                                    onClick={() => setIsNotificationsOpen((isOpen) => !isOpen)}
+                                    onClick={handleNotificationsToggle}
                                     title={newBookingCount > 0 ? `${newBookingCount} novo(s) agendamento(s)` : 'Agendamentos'}
                                     className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
                                 >
