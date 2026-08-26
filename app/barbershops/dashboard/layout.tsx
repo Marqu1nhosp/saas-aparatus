@@ -1,14 +1,15 @@
 'use client';
 
-import { BarChart3, Bell, Calendar, DollarSign, Menu, Scissors, Settings, Users, X } from 'lucide-react';
+import { BarChart3, Bell, Calendar, DollarSign, LogOut, Menu, Scissors, Settings, Users, X } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
 import { DashboardHeader } from '@/app/barbershops/dashboard/_components/dashboard-header';
 import { DashboardSessionSync } from '@/app/barbershops/dashboard/_components/dashboard-session-sync';
 import { Button } from '@/components/ui/button';
 import { getBarbershopName } from '@/data/dashboard';
-import { useDashboardSession } from '@/lib/use-dashboard-session';
+import { clearDashboardSession, useDashboardSession } from '@/lib/use-dashboard-session';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -48,7 +49,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isOpen, setIsOpen] = useState(false);
     const [barbershopName, setBarbershopName] = useState<string | null>(null);
     const [newBookingCount, setNewBookingCount] = useState(0);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [recentBookings, setRecentBookings] = useState<Array<{ id: string; clientName: string; serviceName: string; date: string }>>([]);
     const { user } = useDashboardSession();
+    const router = useRouter();
 
 
     const filteredNavItems = navItems.filter((item) => {
@@ -68,6 +72,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.barbershopId]);
+
+    useEffect(() => {
+        if (!isNotificationsOpen || !user?.barbershopId) return;
+
+        const loadRecentBookings = async () => {
+            try {
+                const authToken = localStorage.getItem('dashboard_auth_token');
+                const headers: Record<string, string> = {};
+                if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
+                const response = await fetch('/api/dashboard/recent-bookings?limit=5', {
+                    cache: 'no-store',
+                    credentials: 'include',
+                    headers,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setRecentBookings(data.bookings ?? []);
+                    localStorage.setItem('lastViewedBookingsTime', Date.now().toString());
+                }
+            } catch {
+                setRecentBookings([]);
+            }
+        };
+
+        loadRecentBookings();
+    }, [isNotificationsOpen, user?.barbershopId]);
+
+    const handleLogout = () => {
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;';
+        localStorage.removeItem('token');
+        localStorage.removeItem('barbershopId');
+        clearDashboardSession();
+        router.push('/dashboard-login');
+    };
 
     useEffect(() => {
         const fetchBarbershop = async () => {
@@ -105,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     const data = await response.json();
                     setNewBookingCount(data.newBookingCount ?? 0);
                 }
-            } catch (error) {
+            } catch {
                 setNewBookingCount(0);
             }
         };
@@ -221,6 +261,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         {user && (
                             <p className="text-sm text-white font-medium truncate px-2 py-2">{user.name}</p>
                         )}
+                        <button
+                            onClick={handleLogout}
+                            className="mt-2 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm text-red-300 transition-colors hover:bg-slate-800 hover:text-red-200"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            <span>Sair</span>
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -234,7 +281,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <button
-                                    onClick={() => (window as any).mobileNotificationOpen = !(window as any).mobileNotificationOpen}
+                                    onClick={() => setIsNotificationsOpen((isOpen) => !isOpen)}
                                     title={newBookingCount > 0 ? `${newBookingCount} novo(s) agendamento(s)` : 'Agendamentos'}
                                     className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
                                 >
@@ -245,6 +292,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         </span>
                                     )}
                                 </button>
+                                {isNotificationsOpen && (
+                                    <div className="absolute right-0 top-12 z-50 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                                        <div className="border-b border-slate-200 p-4">
+                                            <h3 className="font-semibold text-slate-900">Novos Agendamentos</h3>
+                                            {newBookingCount > 0 && (
+                                                <p className="mt-1 text-xs text-slate-500">{newBookingCount} novo(s)</p>
+                                            )}
+                                        </div>
+                                        {recentBookings.length > 0 ? (
+                                            <>
+                                                <div className="max-h-72 overflow-y-auto">
+                                                    {recentBookings.map((booking) => (
+                                                        <div key={booking.id} className="border-b border-slate-100 px-4 py-3 last:border-b-0">
+                                                            <p className="text-sm font-medium text-slate-900">{booking.clientName}</p>
+                                                            <p className="mt-1 text-xs text-slate-600">{booking.serviceName}</p>
+                                                            <p className="mt-1 text-xs text-slate-500">{booking.date}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsNotificationsOpen(false);
+                                                        router.push('/barbershops/dashboard/appointments');
+                                                    }}
+                                                    className="w-full border-t border-slate-200 bg-slate-50 p-3 text-center text-sm font-medium text-blue-600"
+                                                >
+                                                    Ver todos os agendamentos
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <p className="px-4 py-8 text-center text-sm text-slate-500">Nenhum agendamento novo</p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <button
                                 onClick={() => setIsOpen(true)}
